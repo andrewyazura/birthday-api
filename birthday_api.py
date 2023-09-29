@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, url_for, redirect, render_template
 from peewee import (
     Model,
     PostgresqlDatabase,
@@ -9,6 +9,7 @@ from peewee import (
 )
 from flask_login import login_required, LoginManager
 from playhouse.shortcuts import model_to_dict
+import os
 
 
 app = Flask(__name__)
@@ -16,6 +17,8 @@ app = Flask(__name__)
 db = PostgresqlDatabase("postgres", user="postgres", password="postgres")
 
 login_manager = LoginManager(app)
+
+basedir = os.path.abspath(os.path.dirname(__file__))
 
 
 class BaseModel(Model):
@@ -42,8 +45,15 @@ with app.app_context():
     db.create_tables([Birthdays, User])
 
 
-@app.route("/", methods=["GET"])
-# telegram login for web
+@app.route("/login", methods=["GET", "POST"])
+def login_telegram():
+    return render_template("login_redirect.html", title="Login")
+
+
+@app.route("/web", methods=["GET"])
+def web():
+    birthdays = User.get(User.col_creator == 1234).birthdays
+    return jsonify([model_to_dict(birthday) for birthday in birthdays])
 
 
 @app.route("/birthdays", methods=["GET"])

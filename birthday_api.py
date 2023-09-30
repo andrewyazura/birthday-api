@@ -46,12 +46,12 @@ with app.app_context():
 
 
 @app.route("/login", methods=["GET", "POST"])
-def login_telegram():
+def telegram_auth():
     return render_template("login_redirect.html", title="Login")
 
 
-@app.route("/web", methods=["GET"])
-def web():
+@app.route("/webpage", methods=["GET"])
+def webpage():
     birthdays = User.get(User.col_creator == 1234).birthdays
     return jsonify([model_to_dict(birthday) for birthday in birthdays])
 
@@ -61,6 +61,11 @@ def web():
 def users_birthdays():
     birthdays = User.get(User.col_creator == 1234).birthdays
     return jsonify([model_to_dict(birthday) for birthday in birthdays])
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.get(user_id)
 
 
 # User.create(col_creator=1234, col_language="en")

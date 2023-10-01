@@ -50,7 +50,7 @@ def telegram_auth():
     return render_template("login_redirect.html", title="Login")
 
 
-@app.route("/webpage", methods=["GET"])
+@app.route("/webpage", methods=["GET", "POST"])
 def webpage():
     birthdays = User.get(User.col_creator == 1234).birthdays
     return jsonify([model_to_dict(birthday) for birthday in birthdays])

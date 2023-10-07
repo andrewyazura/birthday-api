@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, url_for, redirect, render_template
+from flask import Flask, jsonify, url_for, redirect, render_template, request
 from peewee import (
     Model,
     PostgresqlDatabase,
@@ -10,7 +10,8 @@ from peewee import (
 from flask_login import login_required, LoginManager
 from playhouse.shortcuts import model_to_dict
 import os
-
+from hashlib import sha256
+import hmac
 
 app = Flask(__name__)
 
@@ -52,6 +53,28 @@ def telegram_auth():
 
 @app.route("/webpage", methods=["GET", "POST"])
 def webpage():
+    secret_key = sha256(
+        bytes("5936456116:AAFSjRwO1TqBjwbodOxREQW3ZsWGXWvDFzA", "utf-8")
+    ).digest()
+    # secret_key = "5936456116:AAFSjRwO1TqBjwbodOxREQW3ZsWGXWvDFzA"
+    data_check_dict = request.args.to_dict()
+    del data_check_dict["hash"]
+    sorted_tuples = sorted(data_check_dict.items())
+    data_check_list = []
+    for key, value in sorted_tuples:
+        data_check_list.append(f"{key}={value}")
+    data_check_string = "\n".join(data_check_list)
+    print(data_check_string)
+    fuck = hmac.new(
+        key=secret_key,
+        msg=bytes(data_check_string, "utf-8"),
+        digestmod=sha256,
+    ).hexdigest()
+    if fuck != request.args.get("hash"):
+        print(fuck)
+        print(request.args.get("hash"))
+        raise ValueError
+    # if request.args.get("hash") != hex(hmac.sha256())
     birthdays = User.get(User.col_creator == 1234).birthdays
     return jsonify([model_to_dict(birthday) for birthday in birthdays])
 
@@ -61,6 +84,11 @@ def webpage():
 def users_birthdays():
     birthdays = User.get(User.col_creator == 1234).birthdays
     return jsonify([model_to_dict(birthday) for birthday in birthdays])
+
+
+# @app.route("/db", methods=["GET"])
+# def hole_database():
+#     return jsonify([model_to_dict()])
 
 
 @login_manager.user_loader
@@ -87,3 +115,6 @@ def load_user(user_id):
 #     col_year=2002,
 #     col_creator=User.get(User.col_creator == 4321),
 # )
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=80, debug=True)

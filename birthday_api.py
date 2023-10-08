@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, url_for, redirect, render_template, request
+from flask import Flask, jsonify, url_for, redirect, render_template, request, abort
 from peewee import (
     Model,
     PostgresqlDatabase,
@@ -7,13 +7,14 @@ from peewee import (
     CharField,
     ForeignKeyField,
 )
-from flask_login import login_required, LoginManager
+from flask_login import login_required, LoginManager, login_user, UserMixin, logout_user
 from playhouse.shortcuts import model_to_dict
 import os
 from hashlib import sha256
 import hmac
 
 app = Flask(__name__)
+app.secret_key = os.urandom(16)
 
 db = PostgresqlDatabase("postgres", user="postgres", password="postgres")
 
@@ -27,7 +28,7 @@ class BaseModel(Model):
         database = db
 
 
-class User(BaseModel):
+class User(BaseModel, UserMixin):
     col_creator = CharField()
     col_language = CharField(default="en")
 
@@ -46,9 +47,16 @@ with app.app_context():
     db.create_tables([Birthdays, User])
 
 
-@app.route("/login", methods=["GET", "POST"])
+@app.route("/login")
 def telegram_auth():
     return render_template("login_redirect.html", title="Login")
+
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for("telegram_auth"))
 
 
 @app.route("/webpage", methods=["GET", "POST"])
@@ -71,16 +79,17 @@ def webpage():
         digestmod=sha256,
     ).hexdigest()
     if fuck != request.args.get("hash"):
-        print(fuck)
-        print(request.args.get("hash"))
-        raise ValueError
-    # if request.args.get("hash") != hex(hmac.sha256())
+        return abort(403)
+
+    current_user = User.get(User.col_creator == 1234)
+    login_user(current_user)
     birthdays = User.get(User.col_creator == 1234).birthdays
-    return jsonify([model_to_dict(birthday) for birthday in birthdays])
+    if birthdays:
+        return jsonify([model_to_dict(birthday) for birthday in birthdays])
 
 
 @app.route("/birthdays", methods=["GET"])
-# @login_required
+@login_required
 def users_birthdays():
     birthdays = User.get(User.col_creator == 1234).birthdays
     return jsonify([model_to_dict(birthday) for birthday in birthdays])

@@ -16,7 +16,7 @@ import hmac
 app = Flask(__name__)
 app.secret_key = os.urandom(16)
 
-db = PostgresqlDatabase("postgres", user="postgres", password="postgres")
+db = PostgresqlDatabase("1234", user="user", password="1234")
 
 login_manager = LoginManager(app)
 
@@ -62,7 +62,7 @@ def logout():
 @app.route("/webpage", methods=["GET", "POST"])
 def webpage():
     secret_key = sha256(
-        bytes("5936456116:AAFSjRwO1TqBjwbodOxREQW3ZsWGXWvDFzA", "utf-8")
+        bytes("BOT_TOKEN", "utf-8")
     ).digest()
     # secret_key = "5936456116:AAFSjRwO1TqBjwbodOxREQW3ZsWGXWvDFzA"
     data_check_dict = request.args.to_dict()

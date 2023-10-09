@@ -16,7 +16,7 @@ import hmac
 app = Flask(__name__)
 app.secret_key = os.urandom(16)
 
-db = PostgresqlDatabase("postgres", user="postgres", password="postgres")
+db = PostgresqlDatabase("1234", user="user", password="1234")
 
 login_manager = LoginManager(app)
 
@@ -110,13 +110,13 @@ def load_user(user_id):
 
 # User.create(telegram_id=1234)
 
-Birthdays.create(
-    name="Oleh",
-    day=12,
-    month=4,
-    year=2003,
-    creator=User.get(User.telegram_id == 1234),
-)
+# Birthdays.create(
+#     name="Oleh",
+#     day=12,
+#     month=4,
+#     year=2003,
+#     creator=User.get(User.telegram_id == 1234),
+# )
 
 # User.create(col_creator=4321, col_language="en")
 

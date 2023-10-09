@@ -29,17 +29,19 @@ class BaseModel(Model):
 
 
 class User(BaseModel, UserMixin):
-    col_creator = CharField()
-    col_language = CharField(default="en")
+    telegram_id = CharField(unique=True)  # col_creator
+    language = CharField(
+        default="en"
+    )  # col_language. #one lang - en, automatic translation later.
 
 
 class Birthdays(BaseModel):
-    col_name = CharField()
-    col_day = SmallIntegerField()
-    col_month = SmallIntegerField()
-    col_year = SmallIntegerField(null=True)
-    col_note = TextField(null=True)
-    col_creator = ForeignKeyField(User, backref="birthdays")
+    name = CharField()  # col_name
+    day = SmallIntegerField()  # col_day
+    month = SmallIntegerField()  # col_month
+    year = SmallIntegerField(null=True)  # col_year
+    note = TextField(null=True)  # col_note
+    creator = ForeignKeyField(User, backref="birthdays")  # col_creator
 
 
 with app.app_context():
@@ -47,57 +49,58 @@ with app.app_context():
     db.create_tables([Birthdays, User])
 
 
-@app.route("/login")
-def telegram_auth():
-    return render_template("login_redirect.html", title="Login")
+# @app.route("/login")
+# def telegram_auth():
+#     return render_template("login_redirect.html", title="Login")
 
 
-@app.route("/logout")
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for("telegram_auth"))
+# @app.route("/logout")
+# @login_required
+# def logout():
+#     logout_user()
+#     return redirect(url_for("telegram_auth"))
 
 
-@app.route("/webpage", methods=["GET", "POST"])
-def webpage():
-    secret_key = sha256(
-        bytes("5936456116:AAFSjRwO1TqBjwbodOxREQW3ZsWGXWvDFzA", "utf-8")
-    ).digest()
-    # secret_key = "5936456116:AAFSjRwO1TqBjwbodOxREQW3ZsWGXWvDFzA"
-    data_check_dict = request.args.to_dict()
-    del data_check_dict["hash"]
-    sorted_tuples = sorted(data_check_dict.items())
-    data_check_list = []
-    for key, value in sorted_tuples:
-        data_check_list.append(f"{key}={value}")
-    data_check_string = "\n".join(data_check_list)
-    print(data_check_string)
-    fuck = hmac.new(
-        key=secret_key,
-        msg=bytes(data_check_string, "utf-8"),
-        digestmod=sha256,
-    ).hexdigest()
-    if fuck != request.args.get("hash"):
-        return abort(403)
+# @app.route("/webpage", methods=["GET", "POST"])
+# def webpage():
+#     secret_key = sha256(
+#         bytes("5936456116:AAFSjRwO1TqBjwbodOxREQW3ZsWGXWvDFzA", "utf-8")
+#     ).digest()
+#     # secret_key = "5936456116:AAFSjRwO1TqBjwbodOxREQW3ZsWGXWvDFzA"
+#     data_check_dict = request.args.to_dict()
+#     del data_check_dict["hash"]
+#     sorted_tuples = sorted(data_check_dict.items())
+#     data_check_list = []
+#     for key, value in sorted_tuples:
+#         data_check_list.append(f"{key}={value}")
+#     data_check_string = "\n".join(data_check_list)
+#     print(data_check_string)
+#     fuck = hmac.new(
+#         key=secret_key,
+#         msg=bytes(data_check_string, "utf-8"),
+#         digestmod=sha256,
+#     ).hexdigest()
+#     if fuck != request.args.get("hash"):
+#         return abort(403)
 
-    current_user = User.get(User.col_creator == 1234)
-    login_user(current_user)
-    birthdays = User.get(User.col_creator == 1234).birthdays
-    if birthdays:
-        return jsonify([model_to_dict(birthday) for birthday in birthdays])
+#     current_user = User.get(User.col_creator == 1234)
+#     login_user(current_user)
+#     birthdays = User.get(User.col_creator == 1234).birthdays
+#     if birthdays:
+#         return jsonify([model_to_dict(birthday) for birthday in birthdays])
 
 
 @app.route("/birthdays", methods=["GET"])
-@login_required
+# @login_required
 def users_birthdays():
     birthdays = User.get(User.col_creator == 1234).birthdays
     return jsonify([model_to_dict(birthday) for birthday in birthdays])
 
 
-# @app.route("/db", methods=["GET"])
-# def hole_database():
-#     return jsonify([model_to_dict()])
+@app.route("/birthdays", methods=["POST"])
+def add_birthday():
+    user = User.get_or_create(telegram_id=request.args.get("id"))
+    # Birthdays.create()
 
 
 @login_manager.user_loader
@@ -105,15 +108,15 @@ def load_user(user_id):
     return User.get(user_id)
 
 
-# User.create(col_creator=1234, col_language="en")
+# User.create(telegram_id=1234)
 
-# Birthdays.create(
-#     col_name="Oleh",
-#     col_day=12,
-#     col_month=4,
-#     col_year=2003,
-#     col_creator=User.get(User.col_creator == 1234),
-# )
+Birthdays.create(
+    name="Oleh",
+    day=12,
+    month=4,
+    year=2003,
+    creator=User.get(User.telegram_id == 1234),
+)
 
 # User.create(col_creator=4321, col_language="en")
 

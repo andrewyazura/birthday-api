@@ -16,7 +16,7 @@ import hmac
 app = Flask(__name__)
 app.secret_key = os.urandom(16)
 
-db = PostgresqlDatabase("1234", user="user", password="1234")
+db = PostgresqlDatabase("postgres", user="postgres", password="postgres")
 
 login_manager = LoginManager(app)
 
@@ -83,26 +83,54 @@ with app.app_context():
 #     if fuck != request.args.get("hash"):
 #         return abort(403)
 
-#     current_user = User.get(User.col_creator == 1234)
+#     current_user = User.get(User.telegram_id == 1234)
 #     login_user(current_user)
-#     birthdays = User.get(User.col_creator == 1234).birthdays
+#     birthdays = User.get(User.telegram_id == 1234).birthdays
 #     if birthdays:
 #         return jsonify([model_to_dict(birthday) for birthday in birthdays])
 
 
 @app.route("/birthdays", methods=["GET"])
-# @login_required
 def users_birthdays():
-    birthdays = User.get(User.col_creator == 1234).birthdays
+    birthdays = User.get(User.telegram_id == 1234).birthdays
     return jsonify([model_to_dict(birthday) for birthday in birthdays])
+
+
+@app.route("/birthdays/<string:name>", methods=["GET"])
+def one_birthday(name):
+    data = request.get_json()
+    birthday = User.get(User.telegram_id == 1234).birthdays.get(
+        Birthdays.name == "Oleh"
+    )
+    print(birthday)
+    return "", 200
 
 
 @app.route("/birthdays", methods=["POST"])
 def add_birthday():
-    user = User.get_or_create(telegram_id=request.args.get("id"))
-    # Birthdays.create()
+    data = request.get_json()
+    user, created = User.get_or_create(telegram_id=data.get("id"))
+    Birthdays.create(
+        name=data.get("name"),
+        day=data.get("day"),
+        month=data.get("month"),
+        year=data.get("year"),
+        creator=user,
+    )
+    return "", 201
 
 
+@app.route("/birthdays/<string:name>", methods=["DELETE"])
+def delete_birthday(name):
+    # data = request.get_json()
+    # user = User.get(telegram_id=data.get("id"))
+    Birthdays.delete().where(
+        (Birthdays.creator == User.get(telegram_id=1234)) & (Birthdays.name == name)
+    )
+    return "", 204
+
+
+@app.route("/birthdays", methods=[""])
 @login_manager.user_loader
 def load_user(user_id):
     return User.get(user_id)
@@ -118,14 +146,14 @@ def load_user(user_id):
 #     creator=User.get(User.telegram_id == 1234),
 # )
 
-# User.create(col_creator=4321, col_language="en")
+# User.create(telegram_id=4321, col_language="en")
 
 # Birthdays.create(
 #     col_name="Nazar",
 #     col_day=15,
 #     col_month=3,
 #     col_year=2002,
-#     col_creator=User.get(User.col_creator == 4321),
+#     telegram_id=User.get(User.telegram_id == 4321),
 # )
 
 if __name__ == "__main__":

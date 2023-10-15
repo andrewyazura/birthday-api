@@ -7,7 +7,14 @@ from peewee import (
     CharField,
     ForeignKeyField,
 )
-from flask_login import login_required, LoginManager, login_user, UserMixin, logout_user
+from flask_login import (
+    login_required,
+    LoginManager,
+    login_user,
+    UserMixin,
+    logout_user,
+    current_user,
+)
 from playhouse.shortcuts import model_to_dict
 import os
 from hashlib import sha256
@@ -49,16 +56,19 @@ with app.app_context():
     db.create_tables([Birthdays, User])
 
 
-# @app.route("/login")
-# def telegram_auth():
-#     return render_template("login_redirect.html", title="Login")
+# frontend
+@app.route("/")
+def telegram_login():
+    return render_template("login_redirect.html", title="Login")
 
 
-# @app.route("/logout")
-# @login_required
-# def logout():
-#     logout_user()
-#     return redirect(url_for("telegram_auth"))
+# frontend
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    # return redirect(url_for("telegram_login"))
+    return "", 200
 
 
 # @app.route("/webpage", methods=["GET", "POST"])
@@ -91,22 +101,23 @@ with app.app_context():
 
 
 @app.route("/birthdays", methods=["GET"])
+# @login_required
 def users_birthdays():
     birthdays = User.get(User.telegram_id == 1234).birthdays
-    return jsonify([model_to_dict(birthday) for birthday in birthdays])
+    return jsonify([model_to_dict(birthday) for birthday in birthdays]), 200
 
 
-@app.route("/birthdays/<string:name>", methods=["GET"])
+@app.route("/birthdays/<name>", methods=["GET"])
+# @login_required
 def one_birthday(name):
-    data = request.get_json()
-    birthday = User.get(User.telegram_id == 1234).birthdays.get(
-        Birthdays.name == "Oleh"
-    )
-    print(birthday)
-    return "", 200
+    # data = request.get_json()
+    print(request.args.to_dict())
+    birthday = Birthdays.get((Birthdays.creator == 1234) & (Birthdays.name == name))
+    return jsonify(model_to_dict(birthday)), 200
 
 
 @app.route("/birthdays", methods=["POST"])
+# @login_required
 def add_birthday():
     data = request.get_json()
     user, created = User.get_or_create(telegram_id=data.get("id"))
@@ -114,23 +125,21 @@ def add_birthday():
         name=data.get("name"),
         day=data.get("day"),
         month=data.get("month"),
-        year=data.get("year"),
+        year=data.get("year"),  # ignores if no year in request
         creator=user,
     )
-    return "", 201
+    return data, 201
 
 
-@app.route("/birthdays/<string:name>", methods=["DELETE"])
+@app.route("/birthdays/<name>", methods=["DELETE"])
 def delete_birthday(name):
-    # data = request.get_json()
-    # user = User.get(telegram_id=data.get("id"))
-    Birthdays.delete().where(
-        (Birthdays.creator == User.get(telegram_id=1234)) & (Birthdays.name == name)
-    )
-    return "", 204
+    data = request.get_json()
+    user = User.get(telegram_id=data.get("id"))
+    print(Birthdays.get((Birthdays.creator == user) & (Birthdays.name == name)))
+    Birthdays.delete().where((Birthdays.creator == user) & (Birthdays.name == "Vova"))
+    return "deleted", 204
 
 
-@app.route("/birthdays", methods=[""])
 @login_manager.user_loader
 def load_user(user_id):
     return User.get(user_id)
@@ -149,11 +158,11 @@ def load_user(user_id):
 # User.create(telegram_id=4321, col_language="en")
 
 # Birthdays.create(
-#     col_name="Nazar",
-#     col_day=15,
-#     col_month=3,
-#     col_year=2002,
-#     telegram_id=User.get(User.telegram_id == 4321),
+#     name="Nazar",
+#     day=15,
+#     month=3,
+#     year=2002,
+#     creator=User.get(User.telegram_id == 4321),
 # )
 
 if __name__ == "__main__":

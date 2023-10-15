@@ -103,6 +103,8 @@ def logout():
 @app.route("/birthdays", methods=["GET"])
 # @login_required
 def users_birthdays():
+    # data = request.get_json()
+    # birthdays = User.get(User.telegram_id == data.get("id")).birthdays
     birthdays = User.get(User.telegram_id == 1234).birthdays
     return jsonify([model_to_dict(birthday) for birthday in birthdays]), 200
 
@@ -111,8 +113,9 @@ def users_birthdays():
 # @login_required
 def one_birthday(name):
     # data = request.get_json()
-    print(request.args.to_dict())
-    birthday = Birthdays.get((Birthdays.creator == 1234) & (Birthdays.name == name))
+    # user = User.get(User.telegram_id == data.get("id"))
+    user = User.get(User.telegram_id == "1234")
+    birthday = Birthdays.get((Birthdays.creator == user) & (Birthdays.name == name))
     return jsonify(model_to_dict(birthday)), 200
 
 
@@ -131,12 +134,33 @@ def add_birthday():
     return data, 201
 
 
+@app.route(
+    "/birthdays", methods=["PATCH"]
+)  # only add to existing data, request has only new data
+# @login_required
+def update_birthday():
+    data = request.get_json()
+    user = User.get(User.telegram_id == data.get("id"))
+    if (
+        not Birthdays.update(year=data.get("year"), note=data.get("note"))
+        .where((Birthdays.creator == user) & (Birthdays.name == "Vova"))
+        .execute()
+    ):
+        return abort(404)
+    return data, 201
+
+
 @app.route("/birthdays/<name>", methods=["DELETE"])
 def delete_birthday(name):
-    data = request.get_json()
-    user = User.get(telegram_id=data.get("id"))
-    print(Birthdays.get((Birthdays.creator == user) & (Birthdays.name == name)))
-    Birthdays.delete().where((Birthdays.creator == user) & (Birthdays.name == "Vova"))
+    # data = request.get_json()
+    # user = User.get(User.telegram_id == data.get("id"))
+    user = User.get(User.telegram_id == "1234")
+    if (
+        not Birthdays.delete()
+        .where((Birthdays.creator == user) & (Birthdays.name == "Vova"))
+        .execute()
+    ):
+        return abort(404)
     return "deleted", 204
 
 

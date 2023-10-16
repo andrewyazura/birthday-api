@@ -142,7 +142,7 @@ def update_birthday():
     data = request.get_json()
     user = User.get(User.telegram_id == data.get("id"))
     if (
-        not Birthdays.update(year=data.get("year"), note=data.get("note"))
+        not Birthdays.update(note=data.get("note"))
         .where((Birthdays.creator == user) & (Birthdays.name == "Vova"))
         .execute()
     ):

@@ -157,7 +157,7 @@ def delete_birthday(name):
     user = User.get(User.telegram_id == "1234")
     if (
         not Birthdays.delete()
-        .where((Birthdays.creator == user) & (Birthdays.name == "Vova"))
+        .where((Birthdays.creator == user) & (Birthdays.name == name))
         .execute()
     ):
         return abort(404)

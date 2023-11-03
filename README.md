@@ -1,2 +1,2 @@
-# birthday_api
-This is a REST API for my BirthdayBot in Telegram and for a website.
+# birthday-api
+A REST API for my [birthday-bot](https://github.com/orehzzz/birthday-telegram-bot) in Telegram and [birthday-web](https://github.com/orehzzz/birthday-web) site.

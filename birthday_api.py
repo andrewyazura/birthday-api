@@ -7,27 +7,35 @@ from peewee import (
     CharField,
     ForeignKeyField,
 )
-from flask_login import (
-    login_required,
+from flask_login import (  ##maybe dont need
     LoginManager,
     login_user,
     UserMixin,
     logout_user,
-    current_user,
 )
 from playhouse.shortcuts import model_to_dict
 import os
 from hashlib import sha256
 import hmac
+from flask_jwt_extended import (
+    create_access_token,
+    get_jwt_identity,
+    jwt_required,
+    JWTManager,
+)
+
 
 app = Flask(__name__)
-app.secret_key = os.urandom(16)
+app.secret_key = "lol123"
 
 db = PostgresqlDatabase("postgres", user="postgres", password="postgres")
 
 login_manager = LoginManager(app)
 
 basedir = os.path.abspath(os.path.dirname(__file__))
+
+JWT_SECRET_KEY = "lol123"  # Change this!
+jwt = JWTManager(app)
 
 
 class BaseModel(Model):
@@ -57,60 +65,72 @@ with app.app_context():
 
 
 # frontend
-@app.route("/")
+@app.route("/login")
 def telegram_login():
-    return render_template("login_redirect.html", title="Login")
+    # data = check_telegram_data(request.args.to_dict())
+    if not check_telegram_data(request.args.to_dict()):
+        return 401
+    user, created = User.get_or_create(
+        telegram_id=request.args.get("id")
+    )  # not sure it gets request data right
+    token = create_access_token(identity=user.telegram_id)
+    return token
+
+
+def check_telegram_data(data_dict):
+    secret_key = sha256(
+        bytes("5936456116:AAFSjRwO1TqBjwbodOxREQW3ZsWGXWvDFzA", "utf-8")
+    ).digest()
+    # secret_key = "5936456116:AAFSjRwO1TqBjwbodOxREQW3ZsWGXWvDFzA"
+    hash = data_dict["hash"]
+    del data_dict["hash"]
+    print(hash)  # just chek if hash variable remains
+    sorted_tuples = sorted(data_dict.items())
+    data_list = []
+    for key, value in sorted_tuples:
+        data_list.append(f"{key}={value}")
+    data_string = "\n".join(data_list)
+    print(data_string)
+    fuck = hmac.new(
+        key=secret_key,
+        msg=bytes(data_string, "utf-8"),
+        digestmod=sha256,
+    ).hexdigest()
+    if fuck != request.args.get("hash"):
+        return False
+    return True
+
+
+def check_jwt(token):
+    if token:
+        return token
 
 
 # frontend
 @app.route("/logout")
-@login_required
+@jwt_required()
 def logout():
     logout_user()
     # return redirect(url_for("telegram_login"))
     return "", 200
 
 
-# @app.route("/webpage", methods=["GET", "POST"])
-# def webpage():
-#     secret_key = sha256(
-#         bytes("5936456116:AAFSjRwO1TqBjwbodOxREQW3ZsWGXWvDFzA", "utf-8")
-#     ).digest()
-#     # secret_key = "5936456116:AAFSjRwO1TqBjwbodOxREQW3ZsWGXWvDFzA"
-#     data_check_dict = request.args.to_dict()
-#     del data_check_dict["hash"]
-#     sorted_tuples = sorted(data_check_dict.items())
-#     data_check_list = []
-#     for key, value in sorted_tuples:
-#         data_check_list.append(f"{key}={value}")
-#     data_check_string = "\n".join(data_check_list)
-#     print(data_check_string)
-#     fuck = hmac.new(
-#         key=secret_key,
-#         msg=bytes(data_check_string, "utf-8"),
-#         digestmod=sha256,
-#     ).hexdigest()
-#     if fuck != request.args.get("hash"):
-#         return abort(403)
-
-#     current_user = User.get(User.telegram_id == 1234)
-#     login_user(current_user)
-#     birthdays = User.get(User.telegram_id == 1234).birthdays
-#     if birthdays:
-#         return jsonify([model_to_dict(birthday) for birthday in birthdays])
-
-
 @app.route("/birthdays", methods=["GET"])
-# @login_required
+@jwt_required()
 def users_birthdays():
+    current_user = (
+        get_jwt_identity()
+    )  # equals to telegram_id (identity when creating token)
+    birthdays = User.get(User.telegram_id == current_user).birthdays
     # data = request.get_json()
     # birthdays = User.get(User.telegram_id == data.get("id")).birthdays
-    birthdays = User.get(User.telegram_id == 1234).birthdays
-    return jsonify([model_to_dict(birthday) for birthday in birthdays]), 200
+    response = jsonify([model_to_dict(birthday) for birthday in birthdays])
+    response.headers.add("Access-Control-Allow-Origin", "http://127.0.0.1")
+    return response
 
 
 @app.route("/birthdays/<name>", methods=["GET"])
-# @login_required
+# @jwt_required()
 def one_birthday(name):
     # data = request.get_json()
     # user = User.get(User.telegram_id == data.get("id"))
@@ -120,7 +140,7 @@ def one_birthday(name):
 
 
 @app.route("/birthdays", methods=["POST"])
-# @login_required
+# @jwt_required()
 def add_birthday():
     data = request.get_json()
     user, created = User.get_or_create(telegram_id=data.get("id"))
@@ -137,7 +157,7 @@ def add_birthday():
 @app.route(
     "/birthdays", methods=["PATCH"]
 )  # only add to existing data, request has only new data
-# @login_required
+# @jwt_required()
 def update_birthday():
     data = request.get_json()
     user = User.get(User.telegram_id == data.get("id"))
@@ -169,6 +189,34 @@ def load_user(user_id):
     return User.get(user_id)
 
 
+# @app.route("/webpage", methods=["GET", "POST"])
+# def webpage():
+#     secret_key = sha256(
+#         bytes("5936456116:AAFSjRwO1TqBjwbodOxREQW3ZsWGXWvDFzA", "utf-8")
+#     ).digest()
+#     # secret_key = "5936456116:AAFSjRwO1TqBjwbodOxREQW3ZsWGXWvDFzA"
+#     data_check_dict = request.args.to_dict()
+#     del data_check_dict["hash"]
+#     sorted_tuples = sorted(data_check_dict.items())
+#     data_check_list = []
+#     for key, value in sorted_tuples:
+#         data_check_list.append(f"{key}={value}")
+#     data_string = "\n".join(data_check_list)
+#     print(data_string)
+#     fuck = hmac.new(
+#         key=secret_key,
+#         msg=bytes(data_string, "utf-8"),
+#         digestmod=sha256,
+#     ).hexdigest()
+#     if fuck != request.args.get("hash"):
+#         return abort(403)
+
+#     current_user = User.get(User.telegram_id == 1234)
+#     login_user(current_user)
+#     birthdays = User.get(User.telegram_id == 1234).birthdays
+#     if birthdays:
+#         return jsonify([model_to_dict(birthday) for birthday in birthdays])
+
 # User.create(telegram_id=1234)
 
 # Birthdays.create(
@@ -190,4 +238,4 @@ def load_user(user_id):
 # )
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=80, debug=True)
+    app.run(host="0.0.0.0", port=8080, debug=True)

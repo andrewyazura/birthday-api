@@ -4,9 +4,9 @@ from flask import (
     url_for,
     redirect,
     render_template,
-    request,
     abort,
     Response,
+    request,
 )
 from peewee import (
     Model,
@@ -15,12 +15,6 @@ from peewee import (
     SmallIntegerField,
     CharField,
     ForeignKeyField,
-)
-from flask_login import (  ##maybe dont need
-    LoginManager,
-    login_user,
-    UserMixin,
-    logout_user,
 )
 from playhouse.shortcuts import model_to_dict
 import os
@@ -31,6 +25,8 @@ from flask_jwt_extended import (
     get_jwt_identity,
     jwt_required,
     JWTManager,
+    set_access_cookies,
+    unset_jwt_cookies,
 )
 import configparser
 import datetime
@@ -44,12 +40,13 @@ app = Flask(__name__)
 
 db = PostgresqlDatabase("postgres", user="postgres", password="postgres")
 
-login_manager = LoginManager(app)
 
 # basedir = os.path.abspath(os.path.dirname(__file__))
 
 # JWT_SECRET_KEY = config.get("Main", "secret_key")  # Change this!
 app.config["JWT_SECRET_KEY"] = config.get("Main", "secret_key")
+app.config["JWT_TOKEN_LOCATION"] = ["headers", "cookies"]
+TELEGRAM_BOT_TOKEN = config.get("Main", "telegram_bot_token")
 jwt = JWTManager(app)
 
 
@@ -58,7 +55,7 @@ class BaseModel(Model):
         database = db
 
 
-class User(BaseModel, UserMixin):
+class User(BaseModel):
     telegram_id = CharField(unique=True)  # col_creator
     language = CharField(
         default="en"
@@ -79,67 +76,55 @@ with app.app_context():
     db.create_tables([Birthdays, User])
 
 
-# frontend
 @app.route("/login")
 def telegram_login():
     # data = check_telegram_data(request.args.to_dict())
-    # if not check_telegram_data(request.args.to_dict()):
-    #     return 401
+    if not check_telegram_data(request.args.to_dict()):
+        return 412
     user, created = User.get_or_create(
         telegram_id=request.args.get("id")
     )  # not sure it gets request data right
-    identity = json.dumps(list({"telegram_id": {user.telegram_id}, "admin": "False"}))
-    token = create_access_token(
+    identity = json.dumps({"telegram_id": user.telegram_id, "admin": "False"})
+    jwt_token = create_access_token(
         identity=identity, expires_delta=datetime.timedelta(minutes=15)
     )
-    response = Response()
+    response = Response(status=200)
     response.headers.add("Access-Control-Allow-Origin", "http://127.0.0.1")
-    response.set_cookie(key="jwt", value=token, httponly=True)
+    # response.set_cookie("jwt", value=token, httponly=True)
+    set_access_cookies(response, jwt_token)
     return response
 
 
 def check_telegram_data(data_dict):
-    secret_key = sha256(
-        bytes("5936456116:AAFSjRwO1TqBjwbodOxREQW3ZsWGXWvDFzA", "utf-8")
-    ).digest()
-    # secret_key = "5936456116:AAFSjRwO1TqBjwbodOxREQW3ZsWGXWvDFzA"
+    secret_key = sha256(bytes(TELEGRAM_BOT_TOKEN, "utf-8")).digest()
     hash = data_dict["hash"]
     del data_dict["hash"]
-    print(hash)  # just chek if hash variable remains
     sorted_tuples = sorted(data_dict.items())
     data_list = []
     for key, value in sorted_tuples:
         data_list.append(f"{key}={value}")
     data_string = "\n".join(data_list)
-    print(data_string)
-    fuck = hmac.new(
+    hash_compose = hmac.new(
         key=secret_key,
         msg=bytes(data_string, "utf-8"),
         digestmod=sha256,
     ).hexdigest()
-    if fuck != request.args.get("hash"):
-        return False
-    return True
+    return hash_compose == hash
 
 
-def check_jwt(token):
-    if token:
-        return token
-
-
-# frontend
 @app.route("/logout")
 @jwt_required()
 def logout():
-    logout_user()
-    # return redirect(url_for("telegram_login"))
-    return "", 200
+    response = Response()
+    unset_jwt_cookies(response)
+    return response, 200
 
 
 @app.route("/birthdays", methods=["GET"])
-@jwt_required(locations='cookies')
+@jwt_required()
 def users_birthdays():
-    # print(get_jwt_identity())
+    print("went into birthdays endpoint")
+    print(get_jwt_identity())
     # current_user = (
     #     get_jwt_identity()
     # )  # equals to telegram_id (identity when creating token)
@@ -151,64 +136,59 @@ def users_birthdays():
     return response
 
 
-@app.route("/birthdays/<name>", methods=["GET"])
-# @jwt_required()
-def one_birthday(name):
-    # data = request.get_json()
-    # user = User.get(User.telegram_id == data.get("id"))
-    user = User.get(User.telegram_id == "1234")
-    birthday = Birthdays.get((Birthdays.creator == user) & (Birthdays.name == name))
-    return jsonify(model_to_dict(birthday)), 200
+# @app.route("/birthdays/<name>", methods=["GET"])
+# # @jwt_required()
+# def one_birthday(name):
+#     # data = request.get_json()
+#     # user = User.get(User.telegram_id == data.get("id"))
+#     user = User.get(User.telegram_id == "1234")
+#     birthday = Birthdays.get((Birthdays.creator == user) & (Birthdays.name == name))
+#     return jsonify(model_to_dict(birthday)), 200
 
 
-@app.route("/birthdays", methods=["POST"])
-# @jwt_required()
-def add_birthday():
-    data = request.get_json()
-    user, created = User.get_or_create(telegram_id=data.get("id"))
-    Birthdays.create(
-        name=data.get("name"),
-        day=data.get("day"),
-        month=data.get("month"),
-        year=data.get("year"),  # ignores if no year in request
-        creator=user,
-    )
-    return data, 201
+# @app.route("/birthdays", methods=["POST"])
+# # @jwt_required()
+# def add_birthday():
+#     data = request.get_json()
+#     user, created = User.get_or_create(telegram_id=data.get("id"))
+#     Birthdays.create(
+#         name=data.get("name"),
+#         day=data.get("day"),
+#         month=data.get("month"),
+#         year=data.get("year"),  # ignores if no year in request
+#         creator=user,
+#     )
+#     return data, 201
 
 
-@app.route(
-    "/birthdays", methods=["PATCH"]
-)  # only add to existing data, request has only new data
-# @jwt_required()
-def update_birthday():
-    data = request.get_json()
-    user = User.get(User.telegram_id == data.get("id"))
-    if (
-        not Birthdays.update(note=data.get("note"))
-        .where((Birthdays.creator == user) & (Birthdays.name == "Vova"))
-        .execute()
-    ):
-        return abort(404)
-    return data, 201
+# @app.route(
+#     "/birthdays", methods=["PATCH"]
+# )  # only add to existing data, request has only new data
+# # @jwt_required()
+# def update_birthday():
+#     data = request.get_json()
+#     user = User.get(User.telegram_id == data.get("id"))
+#     if (
+#         not Birthdays.update(note=data.get("note"))
+#         .where((Birthdays.creator == user) & (Birthdays.name == "Vova"))
+#         .execute()
+#     ):
+#         return abort(404)
+#     return data, 201
 
 
-@app.route("/birthdays/<name>", methods=["DELETE"])
-def delete_birthday(name):
-    # data = request.get_json()
-    # user = User.get(User.telegram_id == data.get("id"))
-    user = User.get(User.telegram_id == "1234")
-    if (
-        not Birthdays.delete()
-        .where((Birthdays.creator == user) & (Birthdays.name == name))
-        .execute()
-    ):
-        return abort(404)
-    return "deleted", 204
-
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User.get(user_id)
+# @app.route("/birthdays/<name>", methods=["DELETE"])
+# def delete_birthday(name):
+#     # data = request.get_json()
+#     # user = User.get(User.telegram_id == data.get("id"))
+#     user = User.get(User.telegram_id == "1234")
+#     if (
+#         not Birthdays.delete()
+#         .where((Birthdays.creator == user) & (Birthdays.name == name))
+#         .execute()
+#     ):
+#         return abort(404)
+#     return "deleted", 204
 
 
 # @app.route("/webpage", methods=["GET", "POST"])
@@ -260,4 +240,4 @@ def load_user(user_id):
 # )
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080, debug=True)
+    app.run(host="127.0.0.1", port=8080, debug=True)

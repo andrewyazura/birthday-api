@@ -31,6 +31,7 @@ from flask_jwt_extended import (
 import configparser
 import datetime
 import json
+from flask_cors import CORS
 
 # os.chdir(os.path.dirname(os.path.abspath(__file__))) #set file's directory as working
 config = configparser.ConfigParser()
@@ -38,16 +39,20 @@ config.read("config.ini")
 
 app = Flask(__name__)
 
+app.config["JWT_SECRET_KEY"] = config.get("Main", "secret_key")
+app.config["JWT_TOKEN_LOCATION"] = ["headers", "cookies"]
+TELEGRAM_BOT_TOKEN = config.get("Main", "telegram_bot_token")
+# app.config["JWT_COOKIE_SECURE"] = False
+
 db = PostgresqlDatabase("postgres", user="postgres", password="postgres")
 
 
 # basedir = os.path.abspath(os.path.dirname(__file__))
 
 # JWT_SECRET_KEY = config.get("Main", "secret_key")  # Change this!
-app.config["JWT_SECRET_KEY"] = config.get("Main", "secret_key")
-app.config["JWT_TOKEN_LOCATION"] = ["headers", "cookies"]
-TELEGRAM_BOT_TOKEN = config.get("Main", "telegram_bot_token")
 jwt = JWTManager(app)
+
+cors = CORS(app)
 
 
 class BaseModel(Model):
@@ -78,6 +83,7 @@ with app.app_context():
 
 @app.route("/login")
 def telegram_login():
+    print("start")
     # data = check_telegram_data(request.args.to_dict())
     if not check_telegram_data(request.args.to_dict()):
         return 412
@@ -89,9 +95,11 @@ def telegram_login():
         identity=identity, expires_delta=datetime.timedelta(minutes=15)
     )
     response = Response(status=200)
-    response.headers.add("Access-Control-Allow-Origin", "http://127.0.0.1")
-    # response.set_cookie("jwt", value=token, httponly=True)
-    set_access_cookies(response, jwt_token)
+    response.headers.add("Access-Control-Allow-Origin", "*")#http://127.0.0.1
+    print(jwt_token)
+    # response.set_cookie("jwt", value=jwt_token, httponly=True)
+    set_access_cookies(response, jwt_token)#domain="127.0.0.1"
+    print("finish")
     return response
 
 
@@ -115,24 +123,24 @@ def check_telegram_data(data_dict):
 @app.route("/logout")
 @jwt_required()
 def logout():
-    response = Response()
+    response = jsonify({"msg": "logout successful"})
     unset_jwt_cookies(response)
-    return response, 200
+    return response
 
 
 @app.route("/birthdays", methods=["GET"])
 @jwt_required()
 def users_birthdays():
     print("went into birthdays endpoint")
-    print(get_jwt_identity())
+    # print(get_jwt_identity())
     # current_user = (
     #     get_jwt_identity()
     # )  # equals to telegram_id (identity when creating token)
     birthdays = User.get(User.telegram_id == 1234).birthdays
     # data = request.get_json()
     # birthdays = User.get(User.telegram_id == data.get("id")).birthdays
-    response = Response(jsonify([model_to_dict(birthday) for birthday in birthdays]))
-    response.headers.add("Access-Control-Allow-Origin", "http://127.0.0.1")
+    response = jsonify([model_to_dict(birthday) for birthday in birthdays])
+    response.headers.add("Access-Control-Allow-Origin", "*")
     return response
 
 

@@ -7,6 +7,7 @@ from flask import (
     abort,
     Response,
     request,
+    make_response,
 )
 from peewee import (
     Model,
@@ -38,6 +39,12 @@ config = configparser.ConfigParser()
 config.read("config.ini")
 
 app = Flask(__name__)
+CORS(
+    app,
+    allow_headers=["X-CSRF-TOKEN"],
+    supports_credentials=True,
+    origins="http://127.0.0.1",
+)
 
 app.config["JWT_SECRET_KEY"] = config.get("Main", "secret_key")
 app.config["JWT_TOKEN_LOCATION"] = ["headers", "cookies"]
@@ -83,7 +90,6 @@ with app.app_context():
 
 @app.route("/login")
 def telegram_login():
-    print("start")
     # data = check_telegram_data(request.args.to_dict())
     if not check_telegram_data(request.args.to_dict()):
         return 412
@@ -95,10 +101,13 @@ def telegram_login():
         identity=identity, expires_delta=datetime.timedelta(minutes=15)
     )
     response = Response(status=200)
-    response.headers.add("Access-Control-Allow-Origin", "*")#http://127.0.0.1
-    print(jwt_token)
+    response.headers.add(
+    "Access-Control-Allow-Origin", "http://127.0.0.1"
+    )  # http://127.0.0.1
+    response.headers.add("Access-Control-Allow-Credentials", "true")
     # response.set_cookie("jwt", value=jwt_token, httponly=True)
-    set_access_cookies(response, jwt_token)#domain="127.0.0.1"
+    set_access_cookies(response, jwt_token)  # domain="127.0.0.1"
+    # access-control-expose-headers: Set-Cookie
     print("finish")
     return response
 
@@ -128,10 +137,21 @@ def logout():
     return response
 
 
-@app.route("/birthdays", methods=["GET"])
+def _build_cors_preflight_response():
+    response = make_response()
+    response.headers.add("Access-Control-Allow-Origin", "http://127.0.0.1")
+    response.headers.add("Access-Control-Allow-Headers", "X-CSRF-TOKEN")
+    response.headers.add("Access-Control-Allow-Methods", "*")
+    response.headers.add("Access-Control-Allow-Credentials", "true")
+    return response
+
+
+@app.route("/birthdays", methods=["GET", "OPTIONS"])
 @jwt_required()
 def users_birthdays():
     print("went into birthdays endpoint")
+    if request.method == "OPTIONS":  # CORS preflight
+        return _build_cors_preflight_response()
     # print(get_jwt_identity())
     # current_user = (
     #     get_jwt_identity()
@@ -140,7 +160,8 @@ def users_birthdays():
     # data = request.get_json()
     # birthdays = User.get(User.telegram_id == data.get("id")).birthdays
     response = jsonify([model_to_dict(birthday) for birthday in birthdays])
-    response.headers.add("Access-Control-Allow-Origin", "*")
+    # response.headers.add("Access-Control-Allow-Origin", "http://127.0.0.1")
+    response.headers.add("Access-Control-Allow-Credentials", "true")
     return response
 
 

@@ -1,5 +1,5 @@
 from app import app, config
-from app.models import User, Birthdays
+from app.models import Users, Birthdays
 from flask import (
     jsonify,
     Response,
@@ -23,26 +23,17 @@ TELEGRAM_BOT_TOKEN = config.get("Main", "telegram_bot_token")
 
 @app.route("/login")
 def telegram_login():
-    # data = _check_telegram_data(request.args.to_dict())
     if not _check_telegram_data(request.args.to_dict()):
         return 412
-    user, created = User.get_or_create(
-        telegram_id=request.args.get("id")
-    )  # not sure it gets request data right
-    # identity = json.dumps({"telegram_id": user.telegram_id, "admin": "False"})
+    user, created = Users.get_or_create(telegram_id=request.args.get("id"))
+    print(user.telegram_id, created)
     identity = {"telegram_id": user.telegram_id, "admin": "False"}
     jwt_token = create_access_token(
         identity=identity, expires_delta=datetime.timedelta(minutes=15)
     )
     response = Response(status=200)
-    # response.headers.add(
-    # "Access-Control-Allow-Origin", "http://127.0.0.1"
-    # )  # http://127.0.0.1
     response.headers.add("Access-Control-Allow-Credentials", "true")
-    # response.set_cookie("jwt", value=jwt_token, httponly=True)
-    set_access_cookies(response, jwt_token)  # domain="127.0.0.1"
-    # access-control-expose-headers: Set-Cookie
-    print("finish")
+    set_access_cookies(response, jwt_token)
     return response
 
 
@@ -86,7 +77,8 @@ def users_birthdays():
     if request.method == "OPTIONS":
         return _build_cors_preflight_response()
     current_user = get_jwt_identity()
-    birthdays = User.get(User.telegram_id == current_user["telegram_id"]).birthdays
+    print(current_user["telegram_id"])
+    birthdays = Users.get(Users.telegram_id == current_user["telegram_id"]).birthdays
     response = jsonify([model_to_dict(birthday) for birthday in birthdays])
     # response.headers.add("Access-Control-Allow-Origin", "http://127.0.0.1")
     response.headers.add("Access-Control-Allow-Credentials", "true")
@@ -107,7 +99,7 @@ def one_birthday(name):
 # # @jwt_required()
 # def add_birthday():
 #     data = request.get_json()
-#     user, created = User.get_or_create(telegram_id=data.get("id"))
+#     user, created = Users.get_or_create(telegram_id=data.get("id"))
 #     Birthdays.create(
 #         name=data.get("name"),
 #         day=data.get("day"),
@@ -124,7 +116,7 @@ def one_birthday(name):
 # # @jwt_required()
 # def update_birthday():
 #     data = request.get_json()
-#     user = User.get(User.telegram_id == data.get("id"))
+#     user = Users.get(User.telegram_id == data.get("id"))
 #     if (
 #         not Birthdays.update(note=data.get("note"))
 #         .where((Birthdays.creator == user) & (Birthdays.name == "Vova"))
@@ -137,8 +129,8 @@ def one_birthday(name):
 # @app.route("/birthdays/<name>", methods=["DELETE"])
 # def delete_birthday(name):
 #     # data = request.get_json()
-#     # user = User.get(User.telegram_id == data.get("id"))
-#     user = User.get(User.telegram_id == "1234")
+#     # user = Users.get(Users.telegram_id == data.get("id"))
+#     user = Users.get(Users.telegram_id == "1234")
 #     if (
 #         not Birthdays.delete()
 #         .where((Birthdays.creator == user) & (Birthdays.name == name))

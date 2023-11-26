@@ -6,6 +6,7 @@ from peewee import (
     SmallIntegerField,
     CharField,
     ForeignKeyField,
+    SQL,
 )
 
 db = PostgresqlDatabase("postgres", user="postgres", password="postgres")
@@ -16,7 +17,7 @@ class BaseModel(Model):
         database = db
 
 
-class User(BaseModel):
+class Users(BaseModel):
     telegram_id = CharField(unique=True)  # col_creator
     language = CharField(
         default="en"
@@ -29,21 +30,24 @@ class Birthdays(BaseModel):
     month = SmallIntegerField()  # col_month
     year = SmallIntegerField(null=True)  # col_year
     note = TextField(null=True)  # col_note
-    creator = ForeignKeyField(User, backref="birthdays")  # col_creator
+    creator = ForeignKeyField(Users, backref="birthdays")  # col_creator
+
+    class Meta:
+        constraints = [SQL("UNIQUE (name, creator_id)")]
 
 
 with app.app_context():
-    # db.drop_tables([Birthdays, User])
-    db.create_tables([Birthdays, User])
+    # db.drop_tables([Birthdays, Users])
+    db.create_tables([Birthdays, Users])
 
-# User.create(telegram_id=1234)
+# Users.create(telegram_id=651472384)
 
 # Birthdays.create(
-#     name="Oleh",
-#     day=12,
-#     month=4,
+#     name="Nazar",
+#     day=13,
+#     month=11,
 #     year=2003,
-#     creator=User.get(User.telegram_id == 1234),
+#     creator=Users.get(Users.telegram_id == 651472384),
 # )
 
 # User.create(telegram_id=4321, col_language="en")

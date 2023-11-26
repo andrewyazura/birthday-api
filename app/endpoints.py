@@ -89,81 +89,72 @@ def users_birthdays():
 @jwt_required()
 def one_birthday(name):
     current_user = get_jwt_identity()
+    user, created = Users.get_or_create(telegram_id=current_user["telegram_id"])
     birthday = Birthdays.get(
-        (Birthdays.creator == current_user["telegram_id"]) & (Birthdays.name == name)
+        (Birthdays.creator == user) & (Birthdays.name == name)
     )
     return jsonify(model_to_dict(birthday))
 
 
-# @app.route("/birthdays", methods=["POST"])
-# # @jwt_required()
-# def add_birthday():
-#     data = request.get_json()
-#     user, created = Users.get_or_create(telegram_id=data.get("id"))
-#     Birthdays.create(
-#         name=data.get("name"),
-#         day=data.get("day"),
-#         month=data.get("month"),
-#         year=data.get("year"),  # ignores if no year in request
-#         creator=user,
-#     )
-#     return data, 201
+@app.route("/birthdays", methods=["POST"])
+@jwt_required()
+def add_birthday():
+    data = request.get_json()
+    current_user = get_jwt_identity()
+    user, created = Users.get_or_create(telegram_id=current_user["telegram_id"])
+    if created: #add my own birthday for every new user:)
+        Birthdays.create(
+            name="Oleh the Creator",
+            day=15,
+            month=4,
+            year=2004,
+            creator=user,
+        )
+    Birthdays.create(
+        name=data.get("name"),
+        day=data.get("day"),
+        month=data.get("month"),
+        year=data.get("year"),  # none if no year in request
+        creator=user,
+    )
+    return data, 201
 
 
-# @app.route(
-#     "/birthdays", methods=["PATCH"]
-# )  # only add to existing data, request has only new data
-# # @jwt_required()
-# def update_birthday():
-#     data = request.get_json()
-#     user = Users.get(User.telegram_id == data.get("id"))
-#     if (
-#         not Birthdays.update(note=data.get("note"))
-#         .where((Birthdays.creator == user) & (Birthdays.name == "Vova"))
-#         .execute()
-#     ):
-#         return abort(404)
-#     return data, 201
+@app.route("/birthdays/<name>", methods=["DELETE"])
+@jwt_required
+def delete_birthday(name):
+    current_user = get_jwt_identity()
+    user, created = Users.get_or_create(telegram_id=current_user["telegram_id"])
+    if created:
+        response = jsonify(
+            {"msg": "fresh user that had no birthdays can't delete them"}
+        )
+        return response, 404
+    if (
+        not Birthdays.delete()
+        .where((Birthdays.creator == user) & (Birthdays.name == name))
+        .execute()
+    ):
+        return 404
+    return "deleted", 204
 
 
-# @app.route("/birthdays/<name>", methods=["DELETE"])
-# def delete_birthday(name):
-#     # data = request.get_json()
-#     # user = Users.get(Users.telegram_id == data.get("id"))
-#     user = Users.get(Users.telegram_id == "1234")
-#     if (
-#         not Birthdays.delete()
-#         .where((Birthdays.creator == user) & (Birthdays.name == name))
-#         .execute()
-#     ):
-#         return abort(404)
-#     return "deleted", 204
+@app.route(
+    "/birthdays", methods=["PATCH"]
+)  # only add to existing data, request has only new data
+@jwt_required()
+def update_birthday():
+    data = request.get_json()
+    current_user = get_jwt_identity()
+    user, created = Users.get_or_create(telegram_id=current_user["telegram_id"])
+    if created:
+        response = jsonify({"msg": "fresh user that had no birthdays can't edit them"})
+        return response, 404
+    if (
+        not Birthdays.update(note=data.get("note"))
+        .where((Birthdays.creator == user) & (Birthdays.name == data.get("name")))
+        .execute()
+    ):
+        return 404
+    return data, 201
 
-
-# @app.route("/webpage", methods=["GET", "POST"])
-# def webpage():
-#     secret_key = sha256(
-#         bytes("5936456116:AAFSjRwO1TqBjwbodOxREQW3ZsWGXWvDFzA", "utf-8")
-#     ).digest()
-#     # secret_key = "5936456116:AAFSjRwO1TqBjwbodOxREQW3ZsWGXWvDFzA"
-#     data_check_dict = request.args.to_dict()
-#     del data_check_dict["hash"]
-#     sorted_tuples = sorted(data_check_dict.items())
-#     data_check_list = []
-#     for key, value in sorted_tuples:
-#         data_check_list.append(f"{key}={value}")
-#     data_string = "\n".join(data_check_list)
-#     print(data_string)
-#     fuck = hmac.new(
-#         key=secret_key,
-#         msg=bytes(data_string, "utf-8"),
-#         digestmod=sha256,
-#     ).hexdigest()
-#     if fuck != request.args.get("hash"):
-#         return abort(403)
-
-#     current_user = User.get(User.telegram_id == 1234)
-#     login_user(current_user)
-#     birthdays = User.get(User.telegram_id == 1234).birthdays
-#     if birthdays:
-#         return jsonify([model_to_dict(birthday) for birthday in birthdays])

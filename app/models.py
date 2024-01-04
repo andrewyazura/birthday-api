@@ -1,4 +1,4 @@
-from app import app
+from app import app, config
 from peewee import (
     Model,
     PostgresqlDatabase,
@@ -9,7 +9,11 @@ from peewee import (
     SQL,
 )
 
-db = PostgresqlDatabase("postgres", user="postgres", password="postgres")
+db = PostgresqlDatabase(
+    config.get("Database", "name"),
+    user=config.get("Database", "user"),
+    password=config.get("Database", "password"),
+)
 
 
 class BaseModel(Model):

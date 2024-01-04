@@ -26,13 +26,14 @@ def telegram_login():
     if not _check_telegram_data(request.args.to_dict()):
         return 412
     user, created = Users.get_or_create(telegram_id=request.args.get("id"))
-    print(user.telegram_id, created)
     identity = {"telegram_id": user.telegram_id, "admin": "False"}
     jwt_token = create_access_token(
         identity=identity, expires_delta=datetime.timedelta(minutes=15)
     )
-    response = Response(status=200)
-    response.headers.add("Access-Control-Allow-Credentials", "true")
+    response = Response(
+        status=200, headers=[("Access-Control-Allow-Credentials", "true")]
+    )
+    # response.headers.add("Access-Control-Allow-Credentials", "true")
     set_access_cookies(response, jwt_token)
     return response
 
@@ -66,6 +67,7 @@ def _build_cors_preflight_response():
     response = make_response()
     response.headers.add("Access-Control-Allow-Origin", "http://127.0.0.1")
     response.headers.add("Access-Control-Allow-Headers", "X-CSRF-TOKEN")
+    response.headers.add("Access-Control-Allow-Headers", "Content-Type")
     response.headers.add("Access-Control-Allow-Methods", "*")
     response.headers.add("Access-Control-Allow-Credentials", "true")
     return response
@@ -77,11 +79,11 @@ def users_birthdays():
     if request.method == "OPTIONS":
         return _build_cors_preflight_response()
     current_user = get_jwt_identity()
-    print(current_user["telegram_id"])
-    birthdays = Users.get(Users.telegram_id == current_user["telegram_id"]).birthdays
+    user, created = Users.get_or_create(telegram_id=current_user["telegram_id"])
+    birthdays = Users.get(Users.telegram_id == user.telegram_id).birthdays
     response = jsonify([model_to_dict(birthday) for birthday in birthdays])
-    # response.headers.add("Access-Control-Allow-Origin", "http://127.0.0.1")
     response.headers.add("Access-Control-Allow-Credentials", "true")
+    # response.headers.add("Access-Control-Allow-Origin", "http://127.0.0.1")
     return response
 
 
@@ -90,34 +92,37 @@ def users_birthdays():
 def one_birthday(name):
     current_user = get_jwt_identity()
     user, created = Users.get_or_create(telegram_id=current_user["telegram_id"])
-    birthday = Birthdays.get(
-        (Birthdays.creator == user) & (Birthdays.name == name)
-    )
+    birthday = Birthdays.get((Birthdays.creator == user) & (Birthdays.name == name))
     return jsonify(model_to_dict(birthday))
 
 
 @app.route("/birthdays", methods=["POST"])
 @jwt_required()
 def add_birthday():
-    data = request.get_json()
+    if request.method == "OPTIONS":
+        return _build_cors_preflight_response()
     current_user = get_jwt_identity()
     user, created = Users.get_or_create(telegram_id=current_user["telegram_id"])
-    if created: #add my own birthday for every new user:)
-        Birthdays.create(
-            name="Oleh the Creator",
-            day=15,
-            month=4,
-            year=2004,
-            creator=user,
-        )
+    data = request.get_json()
+    # if created:  # add my own birthday for every new user:)
+    #     Birthdays.create(
+    #         name="Oleh the Creator",
+    #         day=15,
+    #         month=4,
+    #         year=2004,
+    #         creator=user,
+    #     )
     Birthdays.create(
         name=data.get("name"),
         day=data.get("day"),
         month=data.get("month"),
         year=data.get("year"),  # none if no year in request
+        note=data.get("note"),
         creator=user,
     )
-    return data, 201
+    response = jsonify(data)
+    response.headers.add("Access-Control-Allow-Credentials", "true")
+    return response, 201  # add Oleh to data? maybe no
 
 
 @app.route("/birthdays/<name>", methods=["DELETE"])
@@ -126,9 +131,7 @@ def delete_birthday(name):
     current_user = get_jwt_identity()
     user, created = Users.get_or_create(telegram_id=current_user["telegram_id"])
     if created:
-        response = jsonify(
-            {"msg": "fresh user that had no birthdays can't delete them"}
-        )
+        response = jsonify({"msg": "new user has no birthdays to delete"})
         return response, 404
     if (
         not Birthdays.delete()
@@ -148,7 +151,7 @@ def update_birthday():
     current_user = get_jwt_identity()
     user, created = Users.get_or_create(telegram_id=current_user["telegram_id"])
     if created:
-        response = jsonify({"msg": "fresh user that had no birthdays can't edit them"})
+        response = jsonify({"msg": "new user has no birthdays to edit"})
         return response, 404
     if (
         not Birthdays.update(note=data.get("note"))
@@ -157,4 +160,3 @@ def update_birthday():
     ):
         return 404
     return data, 201
-

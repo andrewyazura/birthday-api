@@ -33,7 +33,6 @@ def telegram_login():
     response = Response(
         status=200, headers=[("Access-Control-Allow-Credentials", "true")]
     )
-    # response.headers.add("Access-Control-Allow-Credentials", "true")
     set_access_cookies(response, jwt_token)
     return response
 
@@ -73,13 +72,17 @@ def _build_cors_preflight_response():
     return response
 
 
-@app.route("/birthdays", methods=["GET", "OPTIONS"])
+@app.route("/birthdays", methods=["OPTIONS"])
+@jwt_required()
+def options_birthdays():
+    return _build_cors_preflight_response()
+
+
+@app.route("/birthdays", methods=["GET"])
 @jwt_required()
 def users_birthdays():
-    if request.method == "OPTIONS":
-        return _build_cors_preflight_response()
     current_user = get_jwt_identity()
-    user, created = Users.get_or_create(telegram_id=current_user["telegram_id"])
+    user = Users.get(telegram_id=current_user["telegram_id"])
     birthdays = Users.get(Users.telegram_id == user.telegram_id).birthdays
     response = jsonify([model_to_dict(birthday) for birthday in birthdays])
     response.headers.add("Access-Control-Allow-Credentials", "true")
@@ -99,19 +102,10 @@ def one_birthday(name):
 @app.route("/birthdays", methods=["POST"])
 @jwt_required()
 def add_birthday():
-    if request.method == "OPTIONS":
-        return _build_cors_preflight_response()
     current_user = get_jwt_identity()
-    user, created = Users.get_or_create(telegram_id=current_user["telegram_id"])
+    user = Users.get(telegram_id=current_user["telegram_id"])
     data = request.get_json()
-    # if created:  # add my own birthday for every new user:)
-    #     Birthdays.create(
-    #         name="Oleh the Creator",
-    #         day=15,
-    #         month=4,
-    #         year=2004,
-    #         creator=user,
-    #     )
+    # add my own birthday for every new user:) if so, its better to make another request from frontend/bot
     Birthdays.create(
         name=data.get("name"),
         day=data.get("day"),
@@ -122,17 +116,14 @@ def add_birthday():
     )
     response = jsonify(data)
     response.headers.add("Access-Control-Allow-Credentials", "true")
-    return response, 201  # add Oleh to data? maybe no
+    return response, 201
 
 
 @app.route("/birthdays/<name>", methods=["DELETE"])
 @jwt_required
 def delete_birthday(name):
     current_user = get_jwt_identity()
-    user, created = Users.get_or_create(telegram_id=current_user["telegram_id"])
-    if created:
-        response = jsonify({"msg": "new user has no birthdays to delete"})
-        return response, 404
+    user = Users.get(telegram_id=current_user["telegram_id"])
     if (
         not Birthdays.delete()
         .where((Birthdays.creator == user) & (Birthdays.name == name))

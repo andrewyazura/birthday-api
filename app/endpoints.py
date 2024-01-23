@@ -67,9 +67,17 @@ def _build_cors_preflight_response():
     response.headers.add("Access-Control-Allow-Origin", "http://127.0.0.1")
     response.headers.add("Access-Control-Allow-Headers", "X-CSRF-TOKEN")
     response.headers.add("Access-Control-Allow-Headers", "Content-Type")
-    response.headers.add("Access-Control-Allow-Methods", "*")
+    response.headers.add(
+        "Access-Control-Allow-Methods", "GET,HEAD,POST,DELETE,PUT,OPTIONS"
+    )
     response.headers.add("Access-Control-Allow-Credentials", "true")
     return response
+
+
+@app.route("/birthdays/<name>", methods=["OPTIONS"])
+@jwt_required()
+def options_birthdays_pos(name):
+    return _build_cors_preflight_response()
 
 
 @app.route("/birthdays", methods=["OPTIONS"])
@@ -99,7 +107,7 @@ def one_birthday(name):
     return jsonify(model_to_dict(birthday))
 
 
-@app.route("/birthdays", methods=["POST"])
+@app.route("/birthdays", methods=["POST"]) #handle errors
 @jwt_required()
 def add_birthday():
     current_user = get_jwt_identity()
@@ -111,7 +119,7 @@ def add_birthday():
         day=data.get("day"),
         month=data.get("month"),
         year=data.get("year"),  # none if no year in request
-        note=data.get("note"),
+        note=data.get("note"),  # none if no note in request
         creator=user,
     )
     response = jsonify(data)
@@ -120,7 +128,7 @@ def add_birthday():
 
 
 @app.route("/birthdays/<name>", methods=["DELETE"])
-@jwt_required
+@jwt_required()
 def delete_birthday(name):
     current_user = get_jwt_identity()
     user = Users.get(telegram_id=current_user["telegram_id"])
@@ -129,8 +137,12 @@ def delete_birthday(name):
         .where((Birthdays.creator == user) & (Birthdays.name == name))
         .execute()
     ):
-        return 404
-    return "deleted", 204
+        response = Response(status=404)
+        response.headers.add("Access-Control-Allow-Credentials", "true")
+        return response
+    response = Response(status=204)
+    response.headers.add("Access-Control-Allow-Credentials", "true")
+    return response
 
 
 @app.route(

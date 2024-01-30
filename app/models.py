@@ -22,7 +22,7 @@ class BaseModel(Model):
 
 
 class Users(BaseModel):
-    telegram_id = CharField(unique=True)  # col_creator
+    telegram_id = CharField(primary_key=True, unique=True)  # col_creator
     language = CharField(
         default="en"
     )  # col_language. #one lang - en, automatic translation later.

@@ -98,23 +98,23 @@ def users_birthdays():
     return response
 
 
-@app.route("/birthdays/<name>", methods=["GET"])
+@app.route("/birthdays/<id>", methods=["GET"])
 @jwt_required()
-def one_birthday(name):
+def one_birthday(id):
     current_user = get_jwt_identity()
     user, created = Users.get_or_create(telegram_id=current_user["telegram_id"])
-    birthday = Birthdays.get((Birthdays.creator == user) & (Birthdays.name == name))
+    birthday = Birthdays.get((Birthdays.creator == user) & (Birthdays.id == id))
     return jsonify(model_to_dict(birthday))
 
 
-@app.route("/birthdays", methods=["POST"]) #handle errors
+@app.route("/birthdays", methods=["POST"])  # handle errors
 @jwt_required()
 def add_birthday():
     current_user = get_jwt_identity()
     user = Users.get(telegram_id=current_user["telegram_id"])
     data = request.get_json()
     # add my own birthday for every new user:) if so, its better to make another request from frontend/bot
-    Birthdays.create(
+    birthday_id = Birthdays.create(
         name=data.get("name"),
         day=data.get("day"),
         month=data.get("month"),
@@ -122,19 +122,19 @@ def add_birthday():
         note=data.get("note"),  # none if no note in request
         creator=user,
     )
-    response = jsonify(data)
+    response = jsonify(model_to_dict(Birthdays.get_by_id(birthday_id)))
     response.headers.add("Access-Control-Allow-Credentials", "true")
     return response, 201
 
 
-@app.route("/birthdays/<name>", methods=["DELETE"])
+@app.route("/birthdays/<id>", methods=["DELETE"])
 @jwt_required()
-def delete_birthday(name):
+def delete_birthday(id):
     current_user = get_jwt_identity()
     user = Users.get(telegram_id=current_user["telegram_id"])
     if (
         not Birthdays.delete()
-        .where((Birthdays.creator == user) & (Birthdays.name == name))
+        .where((Birthdays.creator == user) & (Birthdays.id == id))
         .execute()
     ):
         response = Response(status=404)
@@ -146,10 +146,11 @@ def delete_birthday(name):
 
 
 @app.route(
-    "/birthdays", methods=["PATCH"]
+    "/birthdays/<id>",
+    methods=["PUT"],  # PATCH contains only new info, PUT - new object to replace with
 )  # only add to existing data, request has only new data
 @jwt_required()
-def update_birthday():
+def update_birthday(id):
     data = request.get_json()
     current_user = get_jwt_identity()
     user, created = Users.get_or_create(telegram_id=current_user["telegram_id"])
@@ -157,8 +158,14 @@ def update_birthday():
         response = jsonify({"msg": "new user has no birthdays to edit"})
         return response, 404
     if (
-        not Birthdays.update(note=data.get("note"))
-        .where((Birthdays.creator == user) & (Birthdays.name == data.get("name")))
+        not Birthdays.update(
+            name=data.get("name"),
+            note=data.get("note"),
+            day=data.get("day"),
+            month=data.get("month"),
+            year=data.get("year"),
+        )
+        .where((Birthdays.creator == user) & (Birthdays.id == id))
         .execute()
     ):
         return 404

@@ -74,11 +74,10 @@ def _build_cors_preflight_response():
     return response
 
 
-@app.route("/birthdays/<name>", methods=["OPTIONS"])
+@app.route("/birthdays/<id>", methods=["OPTIONS"])
 @jwt_required()
-def options_birthdays_pos(name):
+def options_birthdays_pos(id):
     return _build_cors_preflight_response()
-
 
 @app.route("/birthdays", methods=["OPTIONS"])
 @jwt_required()
@@ -146,9 +145,8 @@ def delete_birthday(id):
 
 
 @app.route(
-    "/birthdays/<id>",
-    methods=["PUT"],  # PATCH contains only new info, PUT - new object to replace with
-)  # only add to existing data, request has only new data
+    "/birthdays/<id>", methods=["PUT"]
+)  # PATCH contains only new info, PUT - new object to replace with
 @jwt_required()
 def update_birthday(id):
     data = request.get_json()
@@ -169,4 +167,6 @@ def update_birthday(id):
         .execute()
     ):
         return 404
-    return data, 201
+    response = jsonify(model_to_dict(Birthdays.get_by_id(id)))
+    response.headers.add("Access-Control-Allow-Credentials", "true")
+    return response, 200

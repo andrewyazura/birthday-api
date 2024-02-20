@@ -1,11 +1,6 @@
 from app import app, config
 from app.models import Users, Birthdays
-from flask import (
-    jsonify,
-    Response,
-    request,
-    make_response,
-)
+from flask import jsonify, Response, request, make_response, abort
 from playhouse.shortcuts import model_to_dict
 from hashlib import sha256
 import hmac
@@ -17,18 +12,21 @@ from flask_jwt_extended import (
     unset_jwt_cookies,
 )
 import datetime
+from werkzeug.exceptions import HTTPException
 
 TELEGRAM_BOT_TOKEN = config.get("Main", "telegram_bot_token")
+JWT_EXPIRES_MINUTES = int(config.get("Main", "jwt_expires_minutes"))
 
 
 @app.route("/login")
 def telegram_login():
+    # abort(412, description="Failed credentials from telegram check")
     if not _check_telegram_data(request.args.to_dict()):
-        return 412
+        abort(412, description="Failed credentials from telegram check")
     user, created = Users.get_or_create(telegram_id=request.args.get("id"))
     identity = {"telegram_id": user.telegram_id, "admin": "False"}
     jwt_token = create_access_token(
-        identity=identity, expires_delta=datetime.timedelta(minutes=15)
+        identity=identity, expires_delta=datetime.timedelta(minutes=JWT_EXPIRES_MINUTES)
     )
     response = Response(
         status=200, headers=[("Access-Control-Allow-Credentials", "true")]
@@ -67,6 +65,7 @@ def _build_cors_preflight_response():
     response.headers.add("Access-Control-Allow-Origin", "http://127.0.0.1")
     response.headers.add("Access-Control-Allow-Headers", "X-CSRF-TOKEN")
     response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+    response.headers.add("Access-Control-Allow-Headers", "Content-Type")
     response.headers.add(
         "Access-Control-Allow-Methods", "GET,HEAD,POST,DELETE,PUT,OPTIONS"
     )
@@ -74,14 +73,10 @@ def _build_cors_preflight_response():
     return response
 
 
+@app.route("/birthdays", methods=["OPTIONS"])
 @app.route("/birthdays/<id>", methods=["OPTIONS"])
 @jwt_required()
-def options_birthdays_pos(id):
-    return _build_cors_preflight_response()
-
-@app.route("/birthdays", methods=["OPTIONS"])
-@jwt_required()
-def options_birthdays():
+def options_birthdays_pos(id=None):
     return _build_cors_preflight_response()
 
 
@@ -129,6 +124,7 @@ def add_birthday():
 @app.route("/birthdays/<id>", methods=["DELETE"])
 @jwt_required()
 def delete_birthday(id):
+    abort(404)
     current_user = get_jwt_identity()
     user = Users.get(telegram_id=current_user["telegram_id"])
     if (
@@ -152,9 +148,6 @@ def update_birthday(id):
     data = request.get_json()
     current_user = get_jwt_identity()
     user, created = Users.get_or_create(telegram_id=current_user["telegram_id"])
-    if created:
-        response = jsonify({"msg": "new user has no birthdays to edit"})
-        return response, 404
     if (
         not Birthdays.update(
             name=data.get("name"),
@@ -166,7 +159,24 @@ def update_birthday(id):
         .where((Birthdays.creator == user) & (Birthdays.id == id))
         .execute()
     ):
-        return 404
+        return abort(404, description="lol rewrite the hole func with try except")
     response = jsonify(model_to_dict(Birthdays.get_by_id(id)))
     response.headers.add("Access-Control-Allow-Credentials", "true")
     return response, 200
+
+
+@app.errorhandler(HTTPException)
+def handle_exception(e):
+    headers = [("Access-Control-Allow-Credentials", "true")]
+    response = make_response(
+        {
+            "status": "error",
+            "code": e.code,
+            "name": e.name,
+            "description": e.description,
+        },
+        e.code,
+        headers,
+    )
+    response.content_type = "application/json"
+    return response

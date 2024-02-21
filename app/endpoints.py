@@ -20,9 +20,8 @@ JWT_EXPIRES_MINUTES = int(config.get("Main", "jwt_expires_minutes"))
 
 @app.route("/login")
 def telegram_login():
-    # abort(412, description="Failed credentials from telegram check")
     if not _check_telegram_data(request.args.to_dict()):
-        abort(412, description="Failed credentials from telegram check")
+        abort(412, description="Bad credentials from login via Telegram")
     user, created = Users.get_or_create(telegram_id=request.args.get("id"))
     identity = {"telegram_id": user.telegram_id, "admin": "False"}
     jwt_token = create_access_token(
@@ -124,7 +123,6 @@ def add_birthday():
 @app.route("/birthdays/<id>", methods=["DELETE"])
 @jwt_required()
 def delete_birthday(id):
-    abort(404)
     current_user = get_jwt_identity()
     user = Users.get(telegram_id=current_user["telegram_id"])
     if (
@@ -179,4 +177,7 @@ def handle_exception(e):
         headers,
     )
     response.content_type = "application/json"
+    app.logger.exception(
+        f"{datetime.datetime.now()}\n{response.get_data(as_text=True)}"
+    )
     return response

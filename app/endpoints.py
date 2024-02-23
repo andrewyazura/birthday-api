@@ -1,5 +1,5 @@
 from app import app, config
-from app.models import Users, Birthdays
+from app.models import Users, Birthdays, birthdays_schema
 from flask import jsonify, Response, request, make_response, abort
 from playhouse.shortcuts import model_to_dict
 from hashlib import sha256
@@ -13,6 +13,7 @@ from flask_jwt_extended import (
 )
 import datetime
 from werkzeug.exceptions import HTTPException
+from marshmallow import ValidationError
 
 TELEGRAM_BOT_TOKEN = config.get("Main", "telegram_bot_token")
 JWT_EXPIRES_MINUTES = int(config.get("Main", "jwt_expires_minutes"))
@@ -141,11 +142,17 @@ def delete_birthday(id):
 @app.route(
     "/birthdays/<id>", methods=["PUT"]
 )  # PATCH contains only new info, PUT - new object to replace with
-@jwt_required()
+# @jwt_required()
 def update_birthday(id):
-    data = request.get_json()
-    current_user = get_jwt_identity()
-    user, created = Users.get_or_create(telegram_id=current_user["telegram_id"])
+    try:
+        data = birthdays_schema.load(request.get_json())
+    except ValidationError as error:
+        abort(422, description=error.messages["_schema"])
+    print("good data")
+    # current_user = get_jwt_identity()
+    user, created = Users.get_or_create(
+        telegram_id=651472384
+    )  # current_user["telegram_id"]
     if (
         not Birthdays.update(
             name=data.get("name"),

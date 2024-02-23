@@ -28,9 +28,7 @@ def telegram_login():
     jwt_token = create_access_token(
         identity=identity, expires_delta=datetime.timedelta(minutes=JWT_EXPIRES_MINUTES)
     )
-    response = Response(
-        status=200, headers=[("Access-Control-Allow-Credentials", "true")]
-    )
+    response = Response(status=200)
     set_access_cookies(response, jwt_token)
     return response
 
@@ -60,26 +58,6 @@ def logout():
     return response
 
 
-def _build_cors_preflight_response():
-    response = make_response()
-    response.headers.add("Access-Control-Allow-Origin", "http://127.0.0.1")
-    response.headers.add("Access-Control-Allow-Headers", "X-CSRF-TOKEN")
-    response.headers.add("Access-Control-Allow-Headers", "Content-Type")
-    response.headers.add("Access-Control-Allow-Headers", "Content-Type")
-    response.headers.add(
-        "Access-Control-Allow-Methods", "GET,HEAD,POST,DELETE,PUT,OPTIONS"
-    )
-    response.headers.add("Access-Control-Allow-Credentials", "true")
-    return response
-
-
-@app.route("/birthdays", methods=["OPTIONS"])
-@app.route("/birthdays/<id>", methods=["OPTIONS"])
-@jwt_required()
-def options_birthdays_pos(id=None):
-    return _build_cors_preflight_response()
-
-
 @app.route("/birthdays", methods=["GET"])
 @jwt_required()
 def users_birthdays():
@@ -87,8 +65,6 @@ def users_birthdays():
     user = Users.get(telegram_id=current_user["telegram_id"])
     birthdays = Users.get(Users.telegram_id == user.telegram_id).birthdays
     response = jsonify([model_to_dict(birthday) for birthday in birthdays])
-    response.headers.add("Access-Control-Allow-Credentials", "true")
-    # response.headers.add("Access-Control-Allow-Origin", "http://127.0.0.1")
     return response
 
 
@@ -112,12 +88,11 @@ def add_birthday():
         name=data.get("name"),
         day=data.get("day"),
         month=data.get("month"),
-        year=data.get("year"),  # none if no year in request
-        note=data.get("note"),  # none if no note in request
+        year=data.get("year"),  # .get() returns none if no key in dict
+        note=data.get("note"),
         creator=user,
     )
     response = jsonify(model_to_dict(Birthdays.get_by_id(birthday_id)))
-    response.headers.add("Access-Control-Allow-Credentials", "true")
     return response, 201
 
 
@@ -132,47 +107,41 @@ def delete_birthday(id):
         .execute()
     ):
         response = Response(status=404)
-        response.headers.add("Access-Control-Allow-Credentials", "true")
         return response
     response = Response(status=204)
-    response.headers.add("Access-Control-Allow-Credentials", "true")
     return response
 
 
 @app.route(
     "/birthdays/<id>", methods=["PUT"]
 )  # PATCH contains only new info, PUT - new object to replace with
-# @jwt_required()
+@jwt_required()
 def update_birthday(id):
     try:
         data = birthdays_schema.load(request.get_json())
     except ValidationError as error:
         abort(422, description=error.messages["_schema"])
-    print("good data")
     # current_user = get_jwt_identity()
     user, created = Users.get_or_create(
         telegram_id=651472384
     )  # current_user["telegram_id"]
-    if (
-        not Birthdays.update(
+    try:
+        Birthdays.update(
             name=data.get("name"),
-            note=data.get("note"),
             day=data.get("day"),
             month=data.get("month"),
             year=data.get("year"),
-        )
-        .where((Birthdays.creator == user) & (Birthdays.id == id))
-        .execute()
-    ):
-        return abort(404, description="lol rewrite the hole func with try except")
+            note=data.get("note"),
+        ).where((Birthdays.creator == user) & (Birthdays.id == id)).execute()
+    except Exception as exception:
+        abort(404, description="Birthday not found, can't update")
     response = jsonify(model_to_dict(Birthdays.get_by_id(id)))
-    response.headers.add("Access-Control-Allow-Credentials", "true")
     return response, 200
 
 
 @app.errorhandler(HTTPException)
 def handle_exception(e):
-    headers = [("Access-Control-Allow-Credentials", "true")]
+    # headers = [("Access-Control-Allow-Credentials", "true")]
     response = make_response(
         {
             "status": "error",
@@ -181,10 +150,21 @@ def handle_exception(e):
             "description": e.description,
         },
         e.code,
-        headers,
+        # headers,
     )
     response.content_type = "application/json"
     app.logger.exception(
         f"{datetime.datetime.now()}\n{response.get_data(as_text=True)}"
+    )
+    return response
+
+
+@app.after_request
+def add_header(response):
+    # response.headers.add("Access-Control-Allow-Origin", "http://127.0.0.1")
+    response.headers.add("Access-Control-Allow-Headers", "X-CSRF-TOKEN, Content-Type")
+    response.headers.add("Access-Control-Allow-Credentials", "true")
+    response.headers.add(
+        "Access-Control-Allow-Methods", "GET,HEAD,POST,DELETE,PUT,OPTIONS"
     )
     return response

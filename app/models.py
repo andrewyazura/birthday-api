@@ -19,7 +19,7 @@ db = PostgresqlDatabase(
 
 
 class BirthdaysSchema(Schema):
-    name = fields.String(required=True, validate=validate.Length(max=255))  # col_name
+    name = fields.String(required=True, validate=validate.Length(max=255))
     day = fields.Integer(required=True)
     month = fields.Integer(required=True)
     year = fields.Integer()
@@ -35,7 +35,6 @@ class BirthdaysSchema(Schema):
             raise ValidationError("29th of February is forbidden. Choose 28.02 or 1.03")
         try:
             birthday = date(year, data["month"], data["day"])
-            print(birthday)
         except ValueError:
             raise ValidationError("Non-existent date")
         if date.today() < birthday:

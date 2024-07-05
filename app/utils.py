@@ -4,6 +4,16 @@ from flask import make_response
 from werkzeug.exceptions import HTTPException
 from hashlib import sha256
 import hmac
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
+import base64
+from functools import wraps
+from flask import jsonify
+from flask_jwt_extended import get_jwt
+from flask_jwt_extended import verify_jwt_in_request
+
 
 TELEGRAM_BOT_TOKEN = config.get("Main", "telegram_bot_token")
 
@@ -26,7 +36,6 @@ def general_exception_handler(e):
 
 @app.after_request
 def add_header(response):
-    # response.headers.add("Access-Control-Allow-Origin", "http://127.0.0.1")
     response.headers.add("Access-Control-Allow-Headers", "X-CSRF-TOKEN, Content-Type")
     response.headers.add("Access-Control-Allow-Credentials", "true")
     response.headers.add(
@@ -37,8 +46,7 @@ def add_header(response):
 
 def _check_telegram_data(data_dict):
     secret_key = sha256(bytes(TELEGRAM_BOT_TOKEN, "utf-8")).digest()
-    hash = data_dict["hash"]
-    del data_dict["hash"]
+    hash = data_dict.pop("hash")
     sorted_tuples = sorted(data_dict.items())
     data_list = []
     for key, value in sorted_tuples:
@@ -50,3 +58,36 @@ def _check_telegram_data(data_dict):
         digestmod=sha256,
     ).hexdigest()
     return hash_compose == hash
+
+
+def _decrypt(data):
+    encrypted_data = base64.b64decode(data)
+    with open("private_key.pem", "rb") as f:
+        private_key = serialization.load_pem_private_key(
+            f.read(), password=None, backend=default_backend()
+        )
+    decrypted_data = private_key.decrypt(
+        encrypted_data,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None,
+        ),
+    )
+    return decrypted_data.decode("utf-8")
+
+
+def admin_required():
+    def wrapper(fn):
+        @wraps(fn)
+        def decorator(*args, **kwargs):
+            verify_jwt_in_request()
+            claims = get_jwt()
+            if claims["is_admin"]:
+                return fn(*args, **kwargs)
+            else:
+                return jsonify(msg="Admins only!"), 403
+
+        return decorator
+
+    return wrapper

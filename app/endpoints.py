@@ -1,6 +1,10 @@
 from app import app, config
 from app.models import Users, Birthdays, birthdays_schema
-from app.utils import _check_telegram_data
+from app.utils import (
+    _check_telegram_data,
+    _decrypt,
+    admin_required,
+)
 from flask import jsonify, Response, request, abort
 from playhouse.shortcuts import model_to_dict
 from flask_jwt_extended import (
@@ -13,22 +17,54 @@ from flask_jwt_extended import (
 from datetime import timedelta
 from marshmallow import ValidationError
 from peewee import DoesNotExist, IntegrityError
+import datetime
+
 
 JWT_EXPIRES_MINUTES = int(config.get("Main", "jwt_expires_minutes"))
+TELEGRAM_BOT_TOKEN = str(config.get("Main", "telegram_bot_token"))
+
+
+@app.route("/public-key")
+def public_key():
+    try:
+        with open("public_key.pem", "rb") as f:
+            pem = f.read()
+        pem_str = pem.decode("utf-8")
+        return jsonify({"public_key": pem_str})
+    except Exception as error:
+        abort(500, description=f"Unexpected {error=}")
 
 
 @app.route("/login")
-def telegram_login():
-    if not _check_telegram_data(request.args.to_dict()):
-        abort(412, description="Bad credentials from login via Telegram")
+def user_login():
     try:
+        if request.args.get("encoded_bot_id"):
+            if not (_decrypt(request.args.get("encoded_bot_id")) == TELEGRAM_BOT_TOKEN):
+                abort(403, description="Invalid bot id")
+        elif not _check_telegram_data(request.args.to_dict()):
+            abort(412, description="Bad credentials")
         user, created = Users.get_or_create(telegram_id=request.args.get("id"))
-        identity = {
-            "telegram_id": user.telegram_id
-        }  # incoming birthdays endpoint will check if telegram_id is in the config["Admins"]
+        identity = {"telegram_id": user.telegram_id}
         jwt_token = create_access_token(
             identity=identity,
             expires_delta=timedelta(minutes=JWT_EXPIRES_MINUTES),
+        )
+        response = Response(status=200)
+        set_access_cookies(response, jwt_token)
+        return response
+    except Exception as error:
+        abort(500, description=f"Unexpected {error=}")
+
+
+@app.route("/admin/login")
+def admin_login():
+    if not (_decrypt(request.args.get("encoded_bot_id")) == TELEGRAM_BOT_TOKEN):
+        abort(403, description="Access denied")
+    try:
+        jwt_token = create_access_token(
+            identity="admin",
+            expires_delta=timedelta(minutes=JWT_EXPIRES_MINUTES),
+            additional_claims={"is_admin": True},
         )
         response = Response(status=200)
         set_access_cookies(response, jwt_token)
@@ -144,5 +180,42 @@ def update_birthday(id):
         abort(404, description="Can't update non-existent birthday")
     except IntegrityError:
         abort(422, description="User already has a birthday with this name")
+    except Exception as error:
+        abort(500, description=f"Unexpected {error=}")
+
+
+@app.route("/birthdays/incoming", methods=["GET"])
+@jwt_required
+@admin_required
+def incoming_birthdays():
+    try:
+        datetimes = {
+            datetime.date.today(): "today",  # without text
+            datetime.date.today() + datetime.timedelta(days=1): "tomorrow",
+            datetime.date.today() + datetime.timedelta(days=7): "week",
+        }
+        data = []
+        for incoming_in in datetimes:
+            for birthday in Birthdays.select().where(
+                (Birthdays.day == incoming_in.day)
+                & (Birthdays.month == incoming_in.month)
+            ):
+                data += (model_to_dict(birthday), model_to_dict(birthday.creator))
+        return data
+    except DoesNotExist:
+        abort(404, description="No incoming birthdays")
+
+
+@app.route("/birthdays/all", methods=["GET"])
+@jwt_required
+@admin_required
+def all_birthdays():
+    try:
+        data = []
+        for birthday in Birthdays.select():
+            data += (model_to_dict(birthday), model_to_dict(birthday.creator))
+        return data
+    except DoesNotExist:
+        abort(404, description="No birthdays")
     except Exception as error:
         abort(500, description=f"Unexpected {error=}")

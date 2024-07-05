@@ -1,5 +1,7 @@
 config.ini
 birthday_api_venv/
+private_key.pem
+public_key.pem
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

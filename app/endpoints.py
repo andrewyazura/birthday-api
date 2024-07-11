@@ -1,10 +1,6 @@
 from app import app, config
 from app.models import Users, Birthdays, birthdays_schema
-from app.utils import (
-    _check_telegram_data,
-    _decrypt,
-    admin_required,
-)
+from app.utils import _check_telegram_data, _decrypt, admin_required, CustomError
 from flask import jsonify, Response, request, abort
 from playhouse.shortcuts import model_to_dict
 from flask_jwt_extended import (
@@ -38,8 +34,10 @@ def public_key():
 @app.route("/login")
 def user_login():
     try:
-        if request.args.get("encoded_bot_id"):
-            if not (_decrypt(request.args.get("encoded_bot_id")) == TELEGRAM_BOT_TOKEN):
+        if request.args.get("encrypted_bot_id"):
+            if not (
+                _decrypt(request.args.get("encrypted_bot_id")) == TELEGRAM_BOT_TOKEN
+            ):
                 abort(403, description="Invalid bot id")
         elif not _check_telegram_data(request.args.to_dict()):
             abort(412, description="Bad credentials")
@@ -58,7 +56,7 @@ def user_login():
 
 @app.route("/admin/login")
 def admin_login():
-    if not (_decrypt(request.args.get("encoded_bot_id")) == TELEGRAM_BOT_TOKEN):
+    if not (_decrypt(request.args.get("encrypted_bot_id")) == TELEGRAM_BOT_TOKEN):
         abort(403, description="Access denied")
     try:
         jwt_token = create_access_token(
@@ -131,9 +129,12 @@ def add_birthday():
         response = jsonify(model_to_dict(Birthdays.get_by_id(birthday_id)))
         return response, 201
     except ValidationError as error:
-        abort(422, description=error.messages)
+        print(error.data)
+        raise CustomError(422, description=error.messages_dict["_schema"], field="date")
     except IntegrityError:
-        abort(422, description="User already has a birthday with this name")
+        raise CustomError(
+            422, description="User already has a birthday with this name", field="name"
+        )
     except Exception as error:
         abort(500, description=f"Unexpected {error=}")
 
@@ -185,7 +186,6 @@ def update_birthday(id):
 
 
 @app.route("/birthdays/incoming", methods=["GET"])
-@jwt_required
 @admin_required
 def incoming_birthdays():
     try:
@@ -207,7 +207,6 @@ def incoming_birthdays():
 
 
 @app.route("/birthdays/all", methods=["GET"])
-@jwt_required
 @admin_required
 def all_birthdays():
     try:

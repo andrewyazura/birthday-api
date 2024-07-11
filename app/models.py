@@ -8,7 +8,13 @@ from peewee import (
     ForeignKeyField,
     SQL,
 )
-from marshmallow import Schema, fields, validate, validates_schema, ValidationError
+from marshmallow import (
+    Schema,
+    fields,
+    validate,
+    validates_schema,
+    ValidationError,
+)
 from datetime import date
 
 db = PostgresqlDatabase(
@@ -32,13 +38,13 @@ class BirthdaysSchema(Schema):
         except KeyError:
             year = date.today().year - 1
         if (data["month"] == 2) and (data["day"] == 29):
-            raise ValidationError("29th of February is forbidden. Choose 28.02 or 1.03")
+            raise ValidationError("29th of February is not a valid date", field="date")
         try:
             birthday = date(year, data["month"], data["day"])
         except ValueError:
-            raise ValidationError("Non-existent date")
+            raise ValidationError("Invalid date", field="date",)
         if date.today() < birthday:
-            raise ValidationError("Future dates are forbidden")
+            raise ValidationError("Future dates are forbidden", field="date")
 
 
 birthdays_schema = BirthdaysSchema()

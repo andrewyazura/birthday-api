@@ -130,7 +130,9 @@ def add_birthday():
         return response, 201
     except ValidationError as error:
         print(error.data)
-        raise CustomError(422, description=error.messages_dict["_schema"], field="date")
+        raise CustomError(
+            422, description="\n".join(error.messages_dict["_schema"]), field="date"
+        )
     except IntegrityError:
         raise CustomError(
             422, description="User already has a birthday with this name", field="name"

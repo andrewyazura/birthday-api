@@ -18,6 +18,10 @@ from flask_jwt_extended import verify_jwt_in_request
 TELEGRAM_BOT_TOKEN = config.get("Main", "telegram_bot_token")
 
 
+class PubicKeyError(Exception):
+    pass
+
+
 class CustomError(HTTPException):
     def __init__(self, status_code, description, field):
         super().__init__()
@@ -65,7 +69,7 @@ def add_header(response):
     return response
 
 
-def _check_telegram_data(data_dict):
+def _check_telegram_data(data_dict) -> bool:
     try:
         secret_key = sha256(bytes(TELEGRAM_BOT_TOKEN, "utf-8")).digest()
         hash = data_dict.pop("hash")
@@ -80,26 +84,30 @@ def _check_telegram_data(data_dict):
             digestmod=sha256,
         ).hexdigest()
         return hash_compose == hash
-    except KeyError:  # return smth meaningful later
-        return False
     except Exception:
         return False
 
 
 def _decrypt(data):
     encrypted_data = base64.b64decode(data)
+
     with open("private_key.pem", "rb") as f:
         private_key = serialization.load_pem_private_key(
             f.read(), password=None, backend=default_backend()
         )
-    decrypted_data = private_key.decrypt(
-        encrypted_data,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None,
-        ),
-    )
+
+    try:
+        decrypted_data = private_key.decrypt(
+            encrypted_data,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None,
+            ),
+        )
+    except ValueError:
+        raise PubicKeyError
+
     return decrypted_data.decode("utf-8")
 
 

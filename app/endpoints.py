@@ -1,6 +1,5 @@
-from app import app, config
-from app.models import Users, Birthdays, birthdays_schema
-from app.utils import _check_telegram_data, _decrypt, admin_required, CustomError
+import datetime
+
 from flask import jsonify, Response, request, abort
 from playhouse.shortcuts import model_to_dict
 from flask_jwt_extended import (
@@ -10,11 +9,19 @@ from flask_jwt_extended import (
     set_access_cookies,
     unset_jwt_cookies,
 )
-from datetime import timedelta
 from marshmallow import ValidationError
 from peewee import DoesNotExist, IntegrityError
-import datetime
+from werkzeug.exceptions import HTTPException
 
+from app import app, config
+from app.models import Users, Birthdays, birthdays_schema
+from app.utils import (
+    _check_telegram_data,
+    _decrypt,
+    admin_required,
+    CustomError,
+    PubicKeyError,
+)
 
 JWT_EXPIRES_MINUTES = int(config.get("Main", "jwt_expires_minutes"))
 TELEGRAM_BOT_TOKEN = str(config.get("Main", "telegram_bot_token"))
@@ -35,40 +42,51 @@ def public_key():
 def user_login():
     try:
         if request.args.get("encrypted_bot_id"):
-            if not (
-                _decrypt(request.args.get("encrypted_bot_id")) == TELEGRAM_BOT_TOKEN
-            ):
+            received_bot_token = _decrypt(request.args.get("encrypted_bot_id"))
+            if received_bot_token != TELEGRAM_BOT_TOKEN:
                 abort(403, description="Invalid bot id")
         elif not _check_telegram_data(request.args.to_dict()):
             abort(412, description="Bad credentials")
+
         user, created = Users.get_or_create(telegram_id=request.args.get("id"))
         identity = {"telegram_id": user.telegram_id}
         jwt_token = create_access_token(
             identity=identity,
-            expires_delta=timedelta(minutes=JWT_EXPIRES_MINUTES),
+            expires_delta=datetime.timedelta(minutes=JWT_EXPIRES_MINUTES),
         )
         response = Response(status=200)
         set_access_cookies(response, jwt_token)
         return response
+    except PubicKeyError:
+        abort(422, description="Decryption failed: Invalid public key")
     except Exception as error:
-        abort(500, description=f"Unexpected {error=}")
+        if isinstance(error, HTTPException):
+            abort(error.code, description=error.description)
+        else:
+            abort(500, description=f"Unexpected {error=}")
 
 
 @app.route("/admin/login")
 def admin_login():
-    if not (_decrypt(request.args.get("encrypted_bot_id")) == TELEGRAM_BOT_TOKEN):
-        abort(403, description="Access denied")
     try:
+        if not (_decrypt(request.args.get("encrypted_bot_id")) == TELEGRAM_BOT_TOKEN):
+            abort(403, description="Access denied")
+
         jwt_token = create_access_token(
             identity="admin",
-            expires_delta=timedelta(minutes=JWT_EXPIRES_MINUTES),
+            expires_delta=datetime.timedelta(minutes=JWT_EXPIRES_MINUTES),
             additional_claims={"is_admin": True},
         )
         response = Response(status=200)
         set_access_cookies(response, jwt_token)
         return response
+    except PubicKeyError:
+        abort(422, description="Decryption failed: Invalid public key")
     except Exception as error:
-        abort(500, description=f"Unexpected {error=}")
+        if isinstance(error, HTTPException):
+            abort(error.code, description=error.description)
+        else:
+            abort(500, description=f"Unexpected {error=}")
 
 
 @app.route("/logout")

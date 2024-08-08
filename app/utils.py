@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 import base64
 from functools import wraps
-from flask import jsonify
+from flask import jsonify, abort
 from flask_jwt_extended import get_jwt
 from flask_jwt_extended import verify_jwt_in_request
 
@@ -122,3 +122,10 @@ def admin_required(func):
             return jsonify(msg="Admins only!"), 403
 
     return decorator
+
+
+def _abort_error(error):
+    if isinstance(error, HTTPException):
+        abort(error.code, description=error.description)
+    else:
+        abort(500, description=f"Unexpected {error=}")

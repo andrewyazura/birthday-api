@@ -41,22 +41,24 @@ def admin_login():
         _abort_error(error)
 
 
-@app.route("/birthdays/incoming", methods=["GET"])
+@app.route("/admin/birthdays/incoming", methods=["GET"])
 @admin_required
 def incoming_birthdays():
     try:
         datetimes = {
-            datetime.date.today(): "today",  # without text
-            datetime.date.today() + datetime.timedelta(days=1): "tomorrow",
-            datetime.date.today() + datetime.timedelta(days=7): "week",
+            datetime.date.today(): 0,
+            datetime.date.today() + datetime.timedelta(days=1): 1,
+            datetime.date.today() + datetime.timedelta(days=7): 7,
         }
         data = []
-        for incoming_in in datetimes:
+        for incoming_in, days_before in datetimes.items():
             for birthday in Birthdays.select().where(
                 (Birthdays.day == incoming_in.day)
                 & (Birthdays.month == incoming_in.month)
             ):
-                data += (model_to_dict(birthday), model_to_dict(birthday.creator))
+                entry = model_to_dict(birthday)
+                entry["incoming_in_days"] = days_before
+                data.append(entry)
         return data
     except DoesNotExist:
         abort(404, description="No incoming birthdays")
@@ -64,13 +66,13 @@ def incoming_birthdays():
         _abort_error(error)
 
 
-@app.route("/birthdays/all", methods=["GET"])
+@app.route("/admin/birthdays/all", methods=["GET"])
 @admin_required
 def all_birthdays():
     try:
         data = []
         for birthday in Birthdays.select():
-            data += (model_to_dict(birthday), model_to_dict(birthday.creator))
+            data.append(model_to_dict(birthday))
         return data
     except DoesNotExist:
         abort(404, description="No birthdays")

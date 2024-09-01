@@ -1,19 +1,19 @@
-from app import app, config
 from datetime import datetime
-from flask import make_response
-from werkzeug.exceptions import HTTPException
-from hashlib import sha256
 import hmac
+import base64
+
+from flask import make_response, jsonify, abort
+from flask_jwt_extended import get_jwt
+from flask_jwt_extended import verify_jwt_in_request
+from werkzeug.exceptions import HTTPException
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
-import base64
+from hashlib import sha256
 from functools import wraps
-from flask import jsonify, abort
-from flask_jwt_extended import get_jwt
-from flask_jwt_extended import verify_jwt_in_request
 
+from app import app, config
 
 TELEGRAM_BOT_TOKEN = config.get("Main", "telegram_bot_token")
 

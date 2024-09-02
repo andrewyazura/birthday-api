@@ -1,3 +1,5 @@
+"""Routes for admin usage"""
+
 import datetime
 import logging
 
@@ -24,6 +26,13 @@ TELEGRAM_BOT_TOKEN = str(config.get("Main", "telegram_bot_token"))
 
 @app.route("/admin/login")
 def admin_login():
+    """Login endpoint for admin
+
+    Request args should contain encrypted bot token
+
+    Returns JWT token in cookies if login is successful.
+    CSRF token should be manually set in headers for further requests
+    """
     try:
         logging.info("Admin login attempt")
 
@@ -52,6 +61,7 @@ def admin_login():
 @app.route("/admin/birthdays/incoming", methods=["GET"])
 @admin_required
 def incoming_birthdays():
+    """Return incoming birthdays for today, tomorrow and next week"""
     try:
         logging.info("Fetching incoming birthdays for admin")
 
@@ -87,6 +97,7 @@ def incoming_birthdays():
 @app.route("/admin/birthdays/all", methods=["GET"])
 @admin_required
 def all_birthdays():
+    """Return ALL birthdays"""
     try:
         logging.info("Fetching all birthdays for admin")
 

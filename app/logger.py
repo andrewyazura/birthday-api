@@ -1,3 +1,11 @@
+"""Logging configuration for the application
+
+Creates several log files with different levels in the logs directory above the current script's directory
+
+For usage in the application, import this module in the main script.
+In all other scripts, use standard `logging` module to log messages.
+"""
+
 import logging
 from logging.handlers import RotatingFileHandler
 import os

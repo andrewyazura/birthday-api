@@ -1,3 +1,5 @@
+"""Birthday API entry point"""
+
 from app import app, endpoints, admin_endpoints, logger
 
 if __name__ == "__main__":

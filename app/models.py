@@ -1,3 +1,5 @@
+"""Database and schema definitions."""
+
 from app import app, config
 from peewee import (
     Model,

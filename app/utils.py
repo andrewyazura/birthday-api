@@ -1,3 +1,5 @@
+"""Different helper functions, classes and decorators"""
+
 from datetime import datetime
 import hmac
 import base64
@@ -19,10 +21,17 @@ TELEGRAM_BOT_TOKEN = config.get("Main", "telegram_bot_token")
 
 
 class PubicKeyError(Exception):
+    """Raised when public key is invalid"""
+
     pass
 
 
 class CustomError(HTTPException):
+    """Custom error class for handling exceptions
+
+    Extends HTTPException class
+    """
+
     def __init__(self, status_code, description, field):
         super().__init__()
         self.code = status_code
@@ -32,6 +41,10 @@ class CustomError(HTTPException):
 
 @app.errorhandler(CustomError)
 def handle_custom_error(e):
+    """Error handler for CustomError class
+
+    Unlike general_exception_handler, has `field` in response
+    """
     response = make_response(
         {
             "field": e.field,
@@ -47,6 +60,7 @@ def handle_custom_error(e):
 
 @app.errorhandler(HTTPException)
 def general_exception_handler(e):
+    """General error handler for HTTPException class"""
     response = make_response(
         {
             "name": e.name,
@@ -61,6 +75,7 @@ def general_exception_handler(e):
 
 @app.after_request
 def add_header(response):
+    """Add headers before sending response"""
     response.headers.add("Access-Control-Allow-Headers", "X-CSRF-TOKEN, Content-Type")
     response.headers.add("Access-Control-Allow-Credentials", "true")
     response.headers.add(
@@ -70,6 +85,10 @@ def add_header(response):
 
 
 def _check_telegram_data(data_dict) -> bool:
+    """Check if data from Telegram is valid
+
+    Logic description can be found [here](https://core.telegram.org/widgets/login#checking-authorization)
+    """
     try:
         secret_key = sha256(bytes(TELEGRAM_BOT_TOKEN, "utf-8")).digest()
         hash = data_dict.pop("hash")
@@ -89,6 +108,7 @@ def _check_telegram_data(data_dict) -> bool:
 
 
 def _decrypt(data):
+    """Decrypt data using private key"""
     encrypted_data = base64.b64decode(data)
 
     with open("private_key.pem", "rb") as f:
@@ -112,6 +132,8 @@ def _decrypt(data):
 
 
 def admin_required(func):
+    """Decorator for admin only endpoints"""
+
     @wraps(func)
     def decorator(*args, **kwargs):
         verify_jwt_in_request()
@@ -125,6 +147,11 @@ def admin_required(func):
 
 
 def _abort_error(error):
+    """Abort with error message
+
+    If error is HTTPException, abort with error code and description.
+    Otherwise, abort with 500 and error message.
+    """
     if isinstance(error, HTTPException):
         abort(error.code, description=error.description)
     else:

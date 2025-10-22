@@ -7,9 +7,8 @@ In all other scripts, use standard `logging` module to log messages.
 """
 
 import logging
-from logging.handlers import RotatingFileHandler
 import os
-
+from logging.handlers import RotatingFileHandler
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 

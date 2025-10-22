@@ -3,8 +3,7 @@
 import datetime
 import logging
 
-from flask import jsonify, Response, request, abort
-from playhouse.shortcuts import model_to_dict
+from flask import Response, abort, jsonify, request
 from flask_jwt_extended import (
     create_access_token,
     get_jwt_identity,
@@ -14,15 +13,16 @@ from flask_jwt_extended import (
 )
 from marshmallow import ValidationError
 from peewee import DoesNotExist, IntegrityError
+from playhouse.shortcuts import model_to_dict
 
-from app import app, config
-from app.models import Users, Birthdays, birthdays_schema
-from app.utils import (
-    _check_telegram_data,
-    _decrypt,
+from src.app import app, config
+from src.app.models import Birthdays, Users, birthdays_schema
+from src.app.utils import (
     CustomError,
     PubicKeyError,
     _abort_error,
+    _check_telegram_data,
+    _decrypt,
 )
 
 JWT_EXPIRES_MINUTES = int(config.get("Main", "jwt_expires_minutes"))

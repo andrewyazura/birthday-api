@@ -1,23 +1,19 @@
 """Database and schema definitions."""
 
-from app import app, config
+from datetime import date
+
+from marshmallow import Schema, ValidationError, fields, validate, validates_schema
 from peewee import (
-    Model,
-    PostgresqlDatabase,
-    TextField,
-    SmallIntegerField,
+    SQL,
     CharField,
     ForeignKeyField,
-    SQL,
+    Model,
+    PostgresqlDatabase,
+    SmallIntegerField,
+    TextField,
 )
-from marshmallow import (
-    Schema,
-    fields,
-    validate,
-    validates_schema,
-    ValidationError,
-)
-from datetime import date
+
+from src.app import app, config
 
 db = PostgresqlDatabase(
     config.get("Database", "name"),

@@ -1,21 +1,19 @@
 """Different helper functions, classes and decorators"""
 
-from datetime import datetime
-import hmac
 import base64
-
-from flask import make_response, jsonify, abort
-from flask_jwt_extended import get_jwt
-from flask_jwt_extended import verify_jwt_in_request
-from werkzeug.exceptions import HTTPException
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import hashes
-from hashlib import sha256
+import hmac
+from datetime import datetime
 from functools import wraps
+from hashlib import sha256
 
-from app import app, config
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding
+from flask import abort, jsonify, make_response
+from flask_jwt_extended import get_jwt, verify_jwt_in_request
+from werkzeug.exceptions import HTTPException
+
+from src.app import app, config
 
 TELEGRAM_BOT_TOKEN = config.get("Main", "telegram_bot_token")
 

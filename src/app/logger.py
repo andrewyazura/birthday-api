@@ -10,9 +10,9 @@ import logging
 import os
 from logging.handlers import RotatingFileHandler
 
-script_dir = os.path.dirname(os.path.abspath(__file__))
+from src.app import config
 
-log_dir = os.path.join(script_dir, "..", "logs")
+log_dir = config.get("Logs", "log_to")
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)
 

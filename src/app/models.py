@@ -17,6 +17,7 @@ from src.app import app, config
 
 db = PostgresqlDatabase(
     config.get("Database", "name"),
+    host=config.get("Database", "host"),
     user=config.get("Database", "user"),
     password=config.get("Database", "password"),
 )

@@ -45,6 +45,8 @@
           });
         })
       ]);
+
+      venv = pythonSet.mkVirtualEnv "birthday-api-env" workspace.deps.default;
     in {
       devShells.${system}.default = let
         editableOverlay =
@@ -72,8 +74,7 @@
         inherit (pkgs.callPackage pyproject-nix.build.util { }) mkApplication;
       in {
         default = mkApplication {
-          venv =
-            pythonSet.mkVirtualEnv "birthday-api-env" workspace.deps.default;
+          inherit venv;
           package = pythonSet."birthday-api";
         };
       };
@@ -114,8 +115,12 @@
                 Environment = lib.optional (cfg.configFile != null)
                   "CONFIG_FILE_PATH=${cfg.configFile}";
 
-                ExecStart =
-                  "${self.packages.${system}.default}/bin/birthday-api";
+                ExecStart = ''
+                  ${venv}/bin/gunicorn \
+                    --workers 1 \
+                    --bind 127.0.0.1:9000 \
+                    src.birthday_api:app
+                '';
 
                 Type = "simple";
                 Restart = "on-failure";

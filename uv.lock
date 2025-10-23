@@ -18,6 +18,7 @@ dependencies = [
     { name = "flask-cors" },
     { name = "flask-jwt-extended" },
     { name = "flask-marshmallow" },
+    { name = "gunicorn" },
     { name = "idna" },
     { name = "itsdangerous" },
     { name = "jinja2" },
@@ -47,6 +48,7 @@ requires-dist = [
     { name = "flask-cors", specifier = "==4.0.0" },
     { name = "flask-jwt-extended", specifier = "==4.5.3" },
     { name = "flask-marshmallow", specifier = "==1.2.0" },
+    { name = "gunicorn", specifier = ">=23.0.0" },
     { name = "idna", specifier = "==3.4" },
     { name = "itsdangerous", specifier = "==2.1.2" },
     { name = "jinja2", specifier = "==3.1.2" },
@@ -235,6 +237,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/68/67/6057504888d5c1c4bdb9b12f94d40cc0822c0537ab45228638e9f91a252c/flask_marshmallow-1.2.0.tar.gz", hash = "sha256:d0f79eb9743f0c530a3d9e848503e1f2228e6b35a819c91e913af02e68421805", size = 40442, upload-time = "2024-02-05T17:51:36.706Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a2/66/216b57e4e5b38beb1ee3347b52bff10701c116aef86ff4187a7fd2ce8675/flask_marshmallow-1.2.0-py3-none-any.whl", hash = "sha256:ddd2a7c8db5e00a8d56c8ca5f651efae1de7d76b7d821b56ccc2caf09135ad12", size = 11930, upload-time = "2024-02-05T17:51:34.898Z" },
+]
+
+[[package]]
+name = "gunicorn"
+version = "23.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "packaging" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/34/72/9614c465dc206155d93eff0ca20d42e1e35afc533971379482de953521a4/gunicorn-23.0.0.tar.gz", hash = "sha256:f014447a0101dc57e294f6c18ca6b40227a4c90e9bdb586042628030cba004ec", size = 375031, upload-time = "2024-08-10T20:25:27.378Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cb/7d/6dac2a6e1eba33ee43f318edbed4ff29151a49b5d37f080aad1e6469bca4/gunicorn-23.0.0-py3-none-any.whl", hash = "sha256:ec400d38950de4dfd418cff8328b2c8faed0edb0d517d3394e457c317908ca4d", size = 85029, upload-time = "2024-08-10T20:25:24.996Z" },
 ]
 
 [[package]]

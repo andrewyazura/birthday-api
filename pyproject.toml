@@ -18,6 +18,7 @@ dependencies = [
     "flask-cors==4.0.0",
     "flask-jwt-extended==4.5.3",
     "flask-marshmallow==1.2.0",
+    "gunicorn>=23.0.0",
     "idna==3.4",
     "itsdangerous==2.1.2",
     "jinja2==3.1.2",

@@ -36,11 +36,14 @@ def public_key():
     This key is for encrypting the bot token before sending it to the server
     """
     try:
-        with open("public_key.pem", "rb") as f:
+        with open(config.get("Keys", "public"), "rb") as f:
             pem = f.read()
+
         pem_str = pem.decode("utf-8")
         logging.info("Public key sent")
+
         return jsonify({"public_key": pem_str})
+
     except Exception as error:
         logging.error(f"Request: {request} Error: {error}")
         _abort_error(error)

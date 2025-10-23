@@ -1,11 +1,14 @@
-from flask import Flask
-from flask_jwt_extended import JWTManager
 import configparser
-from flask_cors import CORS
 
-# os.chdir(os.path.dirname(os.path.abspath(__file__))) #set file's directory as working
+from flask import Flask
+from flask_cors import CORS
+from flask_jwt_extended import JWTManager
+
+fallback_config_path = os.path.join(os.path.dirname(__file__), "..", "config.ini")
+config_file_path = os.getenv("CONFIG_FILE_PATH", fallback_config_path)
+
 config = configparser.ConfigParser()
-config.read("config.ini")
+config.read(config_file_path)
 
 app = Flask(__name__)
 

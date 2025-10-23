@@ -109,7 +109,7 @@ def _decrypt(data):
     """Decrypt data using private key"""
     encrypted_data = base64.b64decode(data)
 
-    with open("private_key.pem", "rb") as f:
+    with open(config.get("Keys", "private"), "rb") as f:
         private_key = serialization.load_pem_private_key(
             f.read(), password=None, backend=default_backend()
         )

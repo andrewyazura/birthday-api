@@ -3,22 +3,14 @@
 import datetime
 import logging
 
-from flask import Response, request, abort, jsonify
-from playhouse.shortcuts import model_to_dict
-from flask_jwt_extended import (
-    create_access_token,
-    set_access_cookies,
-)
+from flask import Response, abort, jsonify, request
+from flask_jwt_extended import create_access_token, set_access_cookies
 from peewee import DoesNotExist
+from playhouse.shortcuts import model_to_dict
 
-from app import app, config
-from app.models import Birthdays
-from app.utils import (
-    _decrypt,
-    admin_required,
-    PubicKeyError,
-    _abort_error,
-)
+from src.app import app, config
+from src.app.models import Birthdays
+from src.app.utils import PubicKeyError, _abort_error, _decrypt, admin_required
 
 JWT_EXPIRES_MINUTES = int(config.get("Main", "jwt_expires_minutes"))
 TELEGRAM_BOT_TOKEN = str(config.get("Main", "telegram_bot_token"))

@@ -7,13 +7,12 @@ In all other scripts, use standard `logging` module to log messages.
 """
 
 import logging
-from logging.handlers import RotatingFileHandler
 import os
+from logging.handlers import RotatingFileHandler
 
+from src.app import config
 
-script_dir = os.path.dirname(os.path.abspath(__file__))
-
-log_dir = os.path.join(script_dir, "..", "logs")
+log_dir = config.get("Logs", "log_to")
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)
 
